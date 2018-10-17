@@ -1,0 +1,1 @@
+bindgen --no-layout-tests ./vendor/src/meshoptimizer.h -o ./src/bindings.rs

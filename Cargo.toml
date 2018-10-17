@@ -8,3 +8,27 @@ repository = "https://github.com/gwihlidal/meshopt-rs"
 readme = "README.md"
 keywords = ["rust", "mesh", "optimize", "cache", "3d", "rendering"]
 license = "MIT"
+build = "build.rs"
+include = [
+    "src/*.rs",
+    "build.rs",
+    "Cargo.toml",
+    "vendor/src/meshoptimizer.h",
+    "vendor/src/indexcodec.cpp",
+    "vendor/src/indexgenerator.cpp",
+    "vendor/src/overdrawanalyzer.cpp",
+    "vendor/src/overdrawoptimizer.cpp",
+    "vendor/src/simplifier.cpp",
+    "vendor/src/stripifier.cpp",
+    "vendor/src/vcacheanalyzer.cpp",
+    "vendor/src/vcacheoptimizer.cpp",
+    "vendor/src/vertexcodec.cpp",
+    "vendor/src/vfetchanalyzer.cpp",
+    "vendor/src/vfetchoptimizer.cpp",
+]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[build-dependencies]
+cc = { version = "1.0.25", features = ["parallel"] }

@@ -1,12 +1,16 @@
 extern crate meshopt;
 extern crate tobj;
 
+#[macro_use]
+extern crate float_cmp;
+use float_cmp::*;
+
 use std::path::Path;
 use std::mem;
 
 const CACHE_SIZE: usize = 16;
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 struct PackedVertex {
     p: [u16; 4],
@@ -14,7 +18,7 @@ struct PackedVertex {
     t: [u16; 2],
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 struct PackedVertexOct {
     p: [u16; 3],
@@ -22,13 +26,28 @@ struct PackedVertexOct {
     t: [u16; 2],
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialOrd)]
 #[repr(C)]
 struct Vertex {
     p: [f32; 3],
     n: [f32; 3],
     t: [f32; 2],
 }
+
+impl PartialEq for Vertex {
+    fn eq(&self, other: &Vertex) -> bool {
+        self.p[0].approx_eq_ulps(&other.p[0], 2) &&
+        self.p[1].approx_eq_ulps(&other.p[1], 2) &&
+        self.p[2].approx_eq_ulps(&other.p[2], 2) &&
+        self.n[0].approx_eq_ulps(&other.n[0], 2) &&
+        self.n[1].approx_eq_ulps(&other.n[1], 2) &&
+        self.n[2].approx_eq_ulps(&other.n[2], 2) &&
+        self.t[0].approx_eq_ulps(&other.t[0], 2) &&
+        self.t[1].approx_eq_ulps(&other.t[1], 2)
+    }
+}
+
+impl Eq for Vertex {}
 
 impl Vertex {
     fn pack(&self) -> PackedVertex {
@@ -40,15 +59,28 @@ impl Vertex {
     }
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
 #[repr(C)]
 struct Triangle {
     v: [Vertex; 3],
 }
 
 impl Triangle {
-    fn rotate(&self) -> bool {
-        unimplemented!();
+    fn rotate(&mut self) -> bool {
+        if self.v[1] < self.v[2] && self.v[0] > self.v[1] {
+            // 1 is minimum, rotate 012 => 120
+            let tv = self.v[0].clone();
+            self.v[0] = self.v[1];
+            self.v[1] = self.v[2];
+            self.v[2] = tv;
+        } else if self.v[0] > self.v[2] && self.v[1] > self.v[2] {
+            // 2 is minimum, rotate 012 => 201
+            let tv = self.v[2].clone();
+            self.v[2] = self.v[1];
+            self.v[1] = self.v[0];
+            self.v[0] = tv;
+        }
+        self.v[0] != self.v[1] && self.v[0] != self.v[2] && self.v[1] != self.v[2]
     }
 }
 
@@ -212,7 +244,7 @@ impl Mesh {
             let i0 = self.indices[i * 3 + 0];
             let i1 = self.indices[i * 3 + 1];
             let i2 = self.indices[i * 3 + 2];
-            let tri = Triangle {
+            let mut tri = Triangle {
                 v: [
                     self.vertices[i0 as usize].clone(),
                     self.vertices[i1 as usize].clone(),
@@ -328,7 +360,6 @@ fn process_coverage() {
 }
 
 fn main() {
-    println!("This is the demo");
     let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
 
     process_coverage();

@@ -2,10 +2,12 @@ extern crate meshopt;
 extern crate tobj;
 
 use std::path::Path;
+use std::mem;
 
 const CACHE_SIZE: usize = 16;
 
 #[derive(Default, Debug, Clone)]
+#[repr(C)]
 struct PackedVertex {
     p: [u16; 4],
     n: [u8; 4],
@@ -13,6 +15,15 @@ struct PackedVertex {
 }
 
 #[derive(Default, Debug, Clone)]
+#[repr(C)]
+struct PackedVertexOct {
+    p: [u16; 3],
+    n: [u8; 2], // octahedron encoded normal, aliases .pw
+    t: [u16; 2],
+}
+
+#[derive(Default, Debug, Clone)]
+#[repr(C)]
 struct Vertex {
     p: [f32; 3],
     n: [f32; 3],
@@ -30,6 +41,7 @@ impl Vertex {
 }
 
 #[derive(Default, Debug, Clone)]
+#[repr(C)]
 struct Triangle {
     v: [Vertex; 3],
 }
@@ -140,14 +152,82 @@ impl Mesh {
 }
 
 fn encode_index_coverage() {
-    unimplemented!();
+    //unimplemented!();
 }
 
 fn encode_vertex_coverage() {
-    unimplemented!();
+    let mut vertices: Vec<PackedVertexOct> = Vec::with_capacity(4);
+    
+    vertices.push(PackedVertexOct {
+        p: [0, 0, 0],
+        n: [0, 0],
+        t: [0, 0],
+    });
+
+    vertices.push(PackedVertexOct {
+        p: [300, 0, 0],
+        n: [0, 0],
+        t: [500, 0],
+    });
+
+    vertices.push(PackedVertexOct {
+        p: [0, 300, 0],
+        n: [0, 0],
+        t: [0, 500],
+    });
+
+    vertices.push(PackedVertexOct {
+        p: [300, 300, 0],
+        n: [0, 0],
+        t: [500, 500],
+    });
+
+    let encoded_size = unsafe {
+        meshopt::ffi::meshopt_encodeVertexBufferBound(vertices.len(), mem::size_of::<PackedVertexOct>())
+    };
+
+    println!("Encoded size is: {}", encoded_size);
+
+    let mut encoded_data: Vec<u8> = Vec::new();
+    encoded_data.resize(encoded_size, 0u8);
+
+    let encoded_size2 = unsafe {
+        meshopt::ffi::meshopt_encodeVertexBuffer(
+            encoded_data.as_ptr() as *mut ::std::os::raw::c_uchar,
+            encoded_data.len(),
+            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            vertices.len(),
+            mem::size_of::<PackedVertexOct>()
+        )
+    };
+
+    encoded_data.resize(encoded_size2, 0u8);
+    println!("Encoded size2 is: {}", encoded_size2);
+    
+
+    /*let encoded_size = unsafe {
+        spv_data.as_ptr() as *const ::std::os::raw::c_void,
+        meshopt::ffi::meshopt_encodeVertexBuffer();
+    }
+
+
+    pub fn meshopt_encodeVertexBuffer(
+        buffer: *mut ::std::os::raw::c_uchar,
+        buffer_size: usize,
+        vertices: *const ::std::os::raw::c_void,
+        vertex_count: usize,
+        vertex_size: usize,
+    ) -> usize;*/
+}
+
+fn process_coverage() {
+    encode_index_coverage();
+    encode_vertex_coverage();
 }
 
 fn main() {
     println!("This is the demo");
     let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
+
+    process_coverage();
 }

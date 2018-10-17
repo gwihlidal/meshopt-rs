@@ -1,5 +1,3 @@
 pub mod ffi;
 
-pub fn test() {
-
-}
+pub fn test() {}

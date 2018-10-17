@@ -32,3 +32,6 @@ maintenance = { status = "actively-developed" }
 
 [build-dependencies]
 cc = { version = "1.0.25", features = ["parallel"] }
+
+[dev-dependencies]
+tobj = "0.1.6"

@@ -6,7 +6,7 @@ use std::mem;
 
 const CACHE_SIZE: usize = 16;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 #[repr(C)]
 struct PackedVertex {
     p: [u16; 4],
@@ -14,7 +14,7 @@ struct PackedVertex {
     t: [u16; 2],
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 #[repr(C)]
 struct PackedVertexOct {
     p: [u16; 3],
@@ -22,7 +22,7 @@ struct PackedVertexOct {
     t: [u16; 2],
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 #[repr(C)]
 struct Vertex {
     p: [f32; 3],
@@ -40,7 +40,7 @@ impl Vertex {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 #[repr(C)]
 struct Triangle {
     v: [Vertex; 3],
@@ -60,7 +60,16 @@ struct Mesh {
 
 impl Mesh {
     fn is_valid(&self) -> bool {
-        false
+        if self.indices.len() % 3 != 0 {
+            return false;
+        } else {
+            for i in 0..self.indices.len() {
+                if self.indices[i] as usize >= self.vertices.len() {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     fn load_obj(path: &Path) -> Self {
@@ -68,7 +77,76 @@ impl Mesh {
         assert!(obj.is_ok());
         let (models, _) = obj.unwrap();
 
+        assert!(models.len() == 1);
+
+        let mut merged_vertices: Vec<Vertex> = Vec::new();
+
+        let mut total_indices = 0;
+
+        for (i, m) in models.iter().enumerate() {
+            let mut vertices: Vec<Vertex> = Vec::new();
+            
+            let mesh = &m.mesh;
+            println!("model[{}].name = \'{}\'", i, m.name);
+            println!("Size of model[{}].indices: {}", i, mesh.indices.len());
+            println!("model[{}].vertices: {}", i, mesh.positions.len() / 3);
+
+            total_indices += mesh.indices.len();
+
+            for i in 0..mesh.indices.len() {
+                let index = mesh.indices[i] as usize;
+
+                // pos = [x, y, z]
+                let p = [mesh.positions[index * 3], mesh.positions[index * 3 + 1], mesh.positions[index * 3 + 2]];
+
+                let n = if !mesh.normals.is_empty() {
+                    // normal = [x, y, z]
+                    [mesh.normals[index * 3], mesh.normals[index * 3 + 1], mesh.normals[index * 3 + 2]]
+                } else {
+                    [0f32, 0f32, 0f32]
+                };
+
+                let t = if !mesh.texcoords.is_empty() {
+                    // tex coord = [u, v];
+                    [mesh.texcoords[index * 2], mesh.texcoords[index * 2 + 1]]
+                } else {
+                    [0f32, 0f32]
+                };
+
+                vertices.push(Vertex {
+                    p,
+                    n,
+                    t,
+                });
+            }
+
+            merged_vertices.append(&mut vertices);
+        }
+
+        let (total_vertices, vertex_remap) = generate_vertex_remap(total_indices, &merged_vertices);
+
         let mut mesh = Self::default();
+
+        mesh.indices.resize(total_indices, 0u32);
+        unsafe {
+            meshopt::ffi::meshopt_remapIndexBuffer(
+                mesh.indices.as_ptr() as *mut ::std::os::raw::c_uint,
+                ::std::ptr::null(),
+                total_indices,
+                vertex_remap.as_ptr() as *const ::std::os::raw::c_uint
+            );
+        }
+
+        mesh.vertices.resize(total_vertices, Vertex::default());
+        unsafe {
+            meshopt::ffi::meshopt_remapVertexBuffer(
+                mesh.vertices.as_ptr() as *mut ::std::os::raw::c_void,
+                merged_vertices.as_ptr() as *const ::std::os::raw::c_void,
+                total_indices,
+                mem::size_of::<Vertex>(),
+                vertex_remap.as_ptr() as *const ::std::os::raw::c_uint
+            );
+        }
 
         println!(
             "# {:?}: {} vertices, {} triangles",
@@ -76,6 +154,7 @@ impl Mesh {
             mesh.vertices.len(),
             mesh.indices.len() / 3
         );
+
         mesh
     }
 
@@ -151,6 +230,61 @@ impl Mesh {
     }
 }
 
+fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u32>) {
+    let mut remap: Vec<u32> = Vec::new();
+    remap.resize(index_count, 0u32);
+    let vertex_count = unsafe {
+        meshopt::ffi::meshopt_generateVertexRemap(
+            remap.as_ptr() as *mut ::std::os::raw::c_uint, // vb
+            ::std::ptr::null(), // ib
+            index_count,
+            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            index_count,
+            mem::size_of::<T>()
+        )
+    };
+
+    (vertex_count, remap)
+}
+
+fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
+    let conservative_size = unsafe {
+        meshopt::ffi::meshopt_encodeVertexBufferBound(input.len(), mem::size_of::<T>())
+    };
+
+    println!("Conservative size is: {}, sizeof is: {}", conservative_size, mem::size_of::<T>());
+
+    let mut encoded_data: Vec<u8> = Vec::new();
+    encoded_data.resize(conservative_size, 0u8);
+
+    let encoded_size = unsafe {
+        meshopt::ffi::meshopt_encodeVertexBuffer(
+            encoded_data.as_ptr() as *mut ::std::os::raw::c_uchar,
+            encoded_data.len(),
+            input.as_ptr() as *const ::std::os::raw::c_void,
+            input.len(),
+            mem::size_of::<T>()
+        )
+    };
+
+    encoded_data.resize(encoded_size, 0u8);
+    println!("Encoded size is: {}", encoded_size);
+    encoded_data
+
+    /*assert_eq!(encoded_data.len() % mem::size_of::<T>(), 0);
+
+    let typed_data = unsafe {
+        let typed_count = encoded_data.len() / mem::size_of::<T>();
+        let typed_ptr = encoded_data.as_mut_ptr() as *mut T;
+        Vec::from_raw_parts(typed_ptr,
+                            typed_count,
+                            typed_count)
+    };
+
+    mem::forget(encoded_data);
+    typed_data*/
+}
+
 fn encode_index_coverage() {
     //unimplemented!();
 }
@@ -182,42 +316,10 @@ fn encode_vertex_coverage() {
         t: [500, 500],
     });
 
-    let encoded_size = unsafe {
-        meshopt::ffi::meshopt_encodeVertexBufferBound(vertices.len(), mem::size_of::<PackedVertexOct>())
-    };
 
-    println!("Encoded size is: {}", encoded_size);
+    let encoded = pack_vertices(&vertices);
 
-    let mut encoded_data: Vec<u8> = Vec::new();
-    encoded_data.resize(encoded_size, 0u8);
-
-    let encoded_size2 = unsafe {
-        meshopt::ffi::meshopt_encodeVertexBuffer(
-            encoded_data.as_ptr() as *mut ::std::os::raw::c_uchar,
-            encoded_data.len(),
-            vertices.as_ptr() as *const ::std::os::raw::c_void,
-            vertices.len(),
-            mem::size_of::<PackedVertexOct>()
-        )
-    };
-
-    encoded_data.resize(encoded_size2, 0u8);
-    println!("Encoded size2 is: {}", encoded_size2);
     
-
-    /*let encoded_size = unsafe {
-        spv_data.as_ptr() as *const ::std::os::raw::c_void,
-        meshopt::ffi::meshopt_encodeVertexBuffer();
-    }
-
-
-    pub fn meshopt_encodeVertexBuffer(
-        buffer: *mut ::std::os::raw::c_uchar,
-        buffer_size: usize,
-        vertices: *const ::std::os::raw::c_void,
-        vertex_count: usize,
-        vertex_size: usize,
-    ) -> usize;*/
 }
 
 fn process_coverage() {

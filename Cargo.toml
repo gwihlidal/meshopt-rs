@@ -1,0 +1,10 @@
+[package]
+name = "meshopt"
+version = "0.1.0"
+authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
+description = "Rust ffi bindings and idiomatic wrapper for zeux/meshoptimizer"
+homepage = "https://github.com/gwihlidal/meshopt-rs"
+repository = "https://github.com/gwihlidal/meshopt-rs"
+readme = "README.md"
+keywords = ["rust", "mesh", "optimize", "cache", "3d", "rendering"]
+license = "MIT"

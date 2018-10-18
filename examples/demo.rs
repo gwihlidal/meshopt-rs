@@ -5,8 +5,8 @@ extern crate tobj;
 extern crate float_cmp;
 use float_cmp::*;
 
-use std::path::Path;
 use std::mem;
+use std::path::Path;
 
 const CACHE_SIZE: usize = 16;
 
@@ -36,14 +36,14 @@ struct Vertex {
 
 impl PartialEq for Vertex {
     fn eq(&self, other: &Vertex) -> bool {
-        self.p[0].approx_eq_ulps(&other.p[0], 2) &&
-        self.p[1].approx_eq_ulps(&other.p[1], 2) &&
-        self.p[2].approx_eq_ulps(&other.p[2], 2) &&
-        self.n[0].approx_eq_ulps(&other.n[0], 2) &&
-        self.n[1].approx_eq_ulps(&other.n[1], 2) &&
-        self.n[2].approx_eq_ulps(&other.n[2], 2) &&
-        self.t[0].approx_eq_ulps(&other.t[0], 2) &&
-        self.t[1].approx_eq_ulps(&other.t[1], 2)
+        self.p[0].approx_eq_ulps(&other.p[0], 2)
+            && self.p[1].approx_eq_ulps(&other.p[1], 2)
+            && self.p[2].approx_eq_ulps(&other.p[2], 2)
+            && self.n[0].approx_eq_ulps(&other.n[0], 2)
+            && self.n[1].approx_eq_ulps(&other.n[1], 2)
+            && self.n[2].approx_eq_ulps(&other.n[2], 2)
+            && self.t[0].approx_eq_ulps(&other.t[0], 2)
+            && self.t[1].approx_eq_ulps(&other.t[1], 2)
     }
 }
 
@@ -117,7 +117,7 @@ impl Mesh {
 
         for (i, m) in models.iter().enumerate() {
             let mut vertices: Vec<Vertex> = Vec::new();
-            
+
             let mesh = &m.mesh;
             println!("model[{}].name = \'{}\'", i, m.name);
             println!("Size of model[{}].indices: {}", i, mesh.indices.len());
@@ -129,11 +129,19 @@ impl Mesh {
                 let index = mesh.indices[i] as usize;
 
                 // pos = [x, y, z]
-                let p = [mesh.positions[index * 3], mesh.positions[index * 3 + 1], mesh.positions[index * 3 + 2]];
+                let p = [
+                    mesh.positions[index * 3],
+                    mesh.positions[index * 3 + 1],
+                    mesh.positions[index * 3 + 2],
+                ];
 
                 let n = if !mesh.normals.is_empty() {
                     // normal = [x, y, z]
-                    [mesh.normals[index * 3], mesh.normals[index * 3 + 1], mesh.normals[index * 3 + 2]]
+                    [
+                        mesh.normals[index * 3],
+                        mesh.normals[index * 3 + 1],
+                        mesh.normals[index * 3 + 2],
+                    ]
                 } else {
                     [0f32, 0f32, 0f32]
                 };
@@ -145,11 +153,7 @@ impl Mesh {
                     [0f32, 0f32]
                 };
 
-                vertices.push(Vertex {
-                    p,
-                    n,
-                    t,
-                });
+                vertices.push(Vertex { p, n, t });
             }
 
             merged_vertices.append(&mut vertices);
@@ -165,7 +169,7 @@ impl Mesh {
                 mesh.indices.as_ptr() as *mut ::std::os::raw::c_uint,
                 ::std::ptr::null(),
                 total_indices,
-                vertex_remap.as_ptr() as *const ::std::os::raw::c_uint
+                vertex_remap.as_ptr() as *const ::std::os::raw::c_uint,
             );
         }
 
@@ -176,7 +180,7 @@ impl Mesh {
                 merged_vertices.as_ptr() as *const ::std::os::raw::c_void,
                 total_indices,
                 mem::size_of::<Vertex>(),
-                vertex_remap.as_ptr() as *const ::std::os::raw::c_uint
+                vertex_remap.as_ptr() as *const ::std::os::raw::c_uint,
             );
         }
 
@@ -262,30 +266,17 @@ impl Mesh {
     }
 }
 
-fn analyze_vertex_cache(indices: &[u32], vertex_count: usize, cache_size: u32, warp_size: u32, prim_group_size: u32) -> meshopt::ffi::meshopt_VertexCacheStatistics {
-    unsafe {
-        meshopt::ffi::meshopt_analyzeVertexCache(
-            indices.as_ptr() as *mut ::std::os::raw::c_uint,
-            indices.len(),
-            vertex_count,
-            cache_size,
-            warp_size,
-            prim_group_size,
-        )
-    }
-}
-
 fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u32>) {
     let mut remap: Vec<u32> = Vec::new();
     remap.resize(index_count, 0u32);
     let vertex_count = unsafe {
         meshopt::ffi::meshopt_generateVertexRemap(
             remap.as_ptr() as *mut ::std::os::raw::c_uint, // vb
-            ::std::ptr::null(), // ib
+            ::std::ptr::null(),                            // ib
             index_count,
             vertices.as_ptr() as *const ::std::os::raw::c_void,
             index_count,
-            mem::size_of::<T>()
+            mem::size_of::<T>(),
         )
     };
 
@@ -293,11 +284,14 @@ fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u
 }
 
 fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
-    let conservative_size = unsafe {
-        meshopt::ffi::meshopt_encodeVertexBufferBound(input.len(), mem::size_of::<T>())
-    };
+    let conservative_size =
+        unsafe { meshopt::ffi::meshopt_encodeVertexBufferBound(input.len(), mem::size_of::<T>()) };
 
-    println!("Conservative size is: {}, sizeof is: {}", conservative_size, mem::size_of::<T>());
+    println!(
+        "Conservative size is: {}, sizeof is: {}",
+        conservative_size,
+        mem::size_of::<T>()
+    );
 
     let mut encoded_data: Vec<u8> = Vec::new();
     encoded_data.resize(conservative_size, 0u8);
@@ -308,7 +302,7 @@ fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
             encoded_data.len(),
             input.as_ptr() as *const ::std::os::raw::c_void,
             input.len(),
-            mem::size_of::<T>()
+            mem::size_of::<T>(),
         )
     };
 
@@ -317,7 +311,7 @@ fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
     encoded_data
 
     /*assert_eq!(encoded_data.len() % mem::size_of::<T>(), 0);
-
+    
     let typed_data = unsafe {
         let typed_count = encoded_data.len() / mem::size_of::<T>();
         let typed_ptr = encoded_data.as_mut_ptr() as *mut T;
@@ -325,7 +319,7 @@ fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
                             typed_count,
                             typed_count)
     };
-
+    
     mem::forget(encoded_data);
     typed_data*/
 }
@@ -336,7 +330,7 @@ fn encode_index_coverage() {
 
 fn encode_vertex_coverage() {
     let mut vertices: Vec<PackedVertexOct> = Vec::with_capacity(4);
-    
+
     vertices.push(PackedVertexOct {
         p: [0, 0, 0],
         n: [0, 0],
@@ -361,10 +355,7 @@ fn encode_vertex_coverage() {
         t: [500, 500],
     });
 
-
     let encoded = pack_vertices(&vertices);
-
-    
 }
 
 fn process_coverage() {
@@ -375,7 +366,8 @@ fn process_coverage() {
 fn main() {
     let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
 
-    let vcs = analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcs =
+        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
 
     println!("{:?}: ACMR {}", "pirate.obj", vcs.acmr);
     process_coverage();

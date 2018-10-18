@@ -238,7 +238,7 @@ impl Mesh {
             merged_vertices.append(&mut vertices);
         }
 
-        let (total_vertices, vertex_remap) = generate_vertex_remap(total_indices, &merged_vertices);
+        let (total_vertices, vertex_remap) = meshopt::generate_vertex_remap(total_indices, &merged_vertices);
 
         let mut mesh = Self::default();
 
@@ -339,23 +339,6 @@ impl Mesh {
 
         result
     }
-}
-
-fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u32>) {
-    let mut remap: Vec<u32> = Vec::new();
-    remap.resize(index_count, 0u32);
-    let vertex_count = unsafe {
-        meshopt::ffi::meshopt_generateVertexRemap(
-            remap.as_ptr() as *mut ::std::os::raw::c_uint,
-            ::std::ptr::null(),
-            index_count,
-            vertices.as_ptr() as *const ::std::os::raw::c_void,
-            index_count,
-            mem::size_of::<T>(),
-        )
-    };
-
-    (vertex_count, remap)
 }
 
 fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
@@ -610,14 +593,10 @@ fn opt_fetch(mesh: &mut Mesh) {
     meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
 }
 
-fn opt_fetch_remap(_mesh: &mut Mesh) {
-    println!("opt_fetch_remap: unimplemented");
-    // this produces results equivalent to optFetch, but can be used to remap multiple vertex streams
-    //std::vector<unsigned int> remap(mesh.vertices.size());
-    //meshopt_optimizeVertexFetchRemap(&remap[0], &mesh.indices[0], mesh.indices.size(), mesh.vertices.size());
-
-    //meshopt_remapIndexBuffer(&mesh.indices[0], &mesh.indices[0], mesh.indices.size(), &remap[0]);
-    //meshopt_remapVertexBuffer(&mesh.vertices[0], &mesh.vertices[0], mesh.vertices.size(), sizeof(Vertex), &remap[0]);
+fn opt_fetch_remap(mesh: &mut Mesh) {
+    let remap = meshopt::optimize_vertex_fetch_remap(&mesh.indices, mesh.vertices.len());
+    mesh.indices = meshopt::remap_index_buffer(Some(&mesh.indices), mesh.indices.len(), &remap);
+    mesh.vertices = meshopt::remap_vertex_buffer(&mesh.vertices, &remap);
 }
 
 fn opt_complete(mesh: &mut Mesh) {

@@ -599,11 +599,11 @@ fn opt_cache_fifo(mesh: &mut Mesh) {
     );
 }
 
-fn opt_overdraw(_mesh: &mut Mesh) {
+fn opt_overdraw(mesh: &mut Mesh) {
     // use worst-case ACMR threshold so that overdraw optimizer can sort *all* triangles
     // warning: this significantly deteriorates the vertex cache efficiency so it is not advised; look at `opt_complete` for the recommended method
     let threshold = 3f32;
-    //meshopt_optimizeOverdraw(&mesh.indices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), kThreshold);
+    meshopt::optimize_overdraw_in_place(&mut mesh.indices, &mesh.vertices, threshold);
 }
 
 fn opt_fetch(mesh: &mut Mesh) {
@@ -625,8 +625,8 @@ fn opt_complete(mesh: &mut Mesh) {
     meshopt::optimize_vertex_cache_in_place(&mut mesh.indices, mesh.vertices.len());
 
     // reorder indices for overdraw, balancing overdraw and vertex cache efficiency
-    //const float kThreshold = 1.05f; // allow up to 5% worse ACMR to get more reordering opportunities for overdraw
-    //meshopt_optimizeOverdraw(&mesh.indices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), kThreshold);
+    let threshold = 1.05f32; // allow up to 5% worse ACMR to get more reordering opportunities for overdraw
+    meshopt::optimize_overdraw_in_place(&mut mesh.indices, &mesh.vertices, threshold);
 
     // vertex fetch optimization should go last as it depends on the final index order
     let final_size =
@@ -742,6 +742,22 @@ fn simplify(mesh: &Mesh) {
     // for using LOD data at runtime, in addition to vertices and indices you have to save lod_index_offsets/lod_index_counts.
     
     {
+
+        let vcs =
+        meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
+
+    let vfs =
+        meshopt::analyze_vertex_fetch(&copy.indices, copy.vertices.len(), mem::size_of::<Vertex>());
+
+    let vcs_nv = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 32, 32, 32);
+
+    let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
+
+    let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
+
+
+
+
         meshopt_VertexCacheStatistics vcs0 = meshopt_analyzeVertexCache(&indices[lod_index_offsets[0]], lod_index_counts[0], vertices.size(), kCacheSize, 0, 0);
         meshopt_VertexFetchStatistics vfs0 = meshopt_analyzeVertexFetch(&indices[lod_index_offsets[0]], lod_index_counts[0], vertices.size(), sizeof(Vertex));
         meshopt_VertexCacheStatistics vcsN = meshopt_analyzeVertexCache(&indices[lod_index_offsets[lod_count - 1]], lod_index_counts[lod_count - 1], vertices.size(), kCacheSize, 0, 0);
@@ -784,7 +800,7 @@ fn encode_index(mesh: &Mesh) {
                     && decoded[i + 1] == mesh.indices[i + 2])
         );
     }
-    
+
     if mesh.vertices.len() <= 65536 {
         let decoded2 = meshopt::decode_index_buffer::<u16>(&encoded, mesh.indices.len());
         for i in (0..mesh.indices.len()).step_by(3) {
@@ -795,7 +811,7 @@ fn encode_index(mesh: &Mesh) {
             );
         }
     }
-    
+
     println!(
         "IdxCodec : {} bits/triangle (post-deflate {} bits/triangle);",
         (encoded.len() * 8) as f64 / (mesh.indices.len() / 3) as f64,
@@ -807,11 +823,11 @@ fn encode_vertex<T: Clone + Default + Eq>(mesh: &Mesh, name: &str) {
     let mut packed: Vec<T> = Vec::new();
     packed.resize(mesh.vertices.len(), Default::default());
     pack_mesh(&mut packed, &mesh.vertices);
-    
+
     let encoded = meshopt::encode_vertex_buffer(&packed);
     let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
     assert!(packed == decoded);
-    
+
     let compressed = compress(&encoded);
     
     println!("VtxCodec{}: {} bits/vertex (post-deflate {} bits/vertex);",

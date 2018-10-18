@@ -158,6 +158,31 @@ pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]
     next_vertex
 }
 
+/// Overdraw optimizer
+/// Reorders indices to reduce the number of GPU vertex shader invocations and the pixel overdraw
+///
+/// destination must contain enough space for the resulting index buffer (index_count elements)
+/// indices must contain index data that is the result of optimizeVertexCache (*not* the original mesh indices!)
+/// vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer
+/// threshold indicates how much the overdraw optimizer can degrade vertex cache efficiency (1.05 = up to 5%) to reduce overdraw more efficiently
+pub fn optimize_overdraw_in_place<T: DecodePosition>(indices: &mut [u32], vertices: &[T], threshold: f32) {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    unsafe {
+        ffi::meshopt_optimizeOverdraw(
+            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            positions.as_ptr() as *const f32,
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+            threshold,
+        );
+    }
+}
+
 pub fn encode_index_buffer(indices: &[u32], vertex_count: usize) -> Vec<u8> {
     // TODO: Support using either 32 or 16 bit indices
     //assert!(mem::size_of::<T>() == 2 || mem::size_of::<T>() == 4);

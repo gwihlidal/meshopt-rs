@@ -3,6 +3,7 @@ extern crate meshopt;
 extern crate miniz_oxide_c_api;
 extern crate rand;
 extern crate tobj;
+extern crate libc;
 
 use float_cmp::ApproxEqUlps;
 use rand::{thread_rng, Rng};
@@ -881,15 +882,29 @@ fn pack_vertex<T: FromVertex + Default>(mesh: &Mesh, name: &str) {
     );
 }
 
-fn pack_mesh<T, U>(output: &mut [T], input: &[U]) {}
+fn pack_mesh<T, U>(output: &mut [T], input: &[U]) {
+    //
+}
 
-fn compress<T>(vertices: &mut [T]) -> usize {
-    /*
-    std::vector<unsigned char> cbuf(tdefl_compress_bound(data.size() * sizeof(T)));
-    unsigned int flags = tdefl_create_comp_flags_from_zip_params(MZ_DEFAULT_LEVEL, 15, MZ_DEFAULT_STRATEGY);
-    return tdefl_compress_mem_to_mem(&cbuf[0], cbuf.size(), &data[0], data.size() * sizeof(T), flags);
-    */
-    0
+fn compress<T>(data: &mut [T]) -> usize {
+    let input_size = data.len() * mem::size_of::<T>();
+    let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as u32);
+    let mut compress_buffer: Vec<u8> = Vec::new();
+    compress_buffer.resize(compress_bound as usize, 0u8);
+    let flags = miniz_oxide_c_api::tdefl_create_comp_flags_from_zip_params(
+        6, //miniz_oxide_c_api::MZ_DEFAULT_LEVEL,
+        15,
+        miniz_oxide_c_api::MZ_DEFAULT_STRATEGY,
+    );
+    unsafe {
+        miniz_oxide_c_api::tdefl_compress_mem_to_mem(
+            compress_buffer.as_mut_ptr() as *mut ::libc::c_void,
+            compress_buffer.len(),
+            data.as_ptr() as *const ::libc::c_void,
+            input_size,
+            flags as i32,
+        )
+    }
 }
 
 fn main() {
@@ -904,7 +919,7 @@ fn main() {
     optimize_mesh(&mesh, "FetchMap", opt_fetch_remap);
     optimize_mesh(&mesh, "Complete", opt_complete);
 
-    let copy = mesh.clone();
+    let mut copy = mesh.clone();
     meshopt::optimize_vertex_cache_in_place(&mut copy.indices, copy.vertices.len());
     meshopt::optimize_vertex_fetch_in_place(&mut copy.indices, &mut copy.vertices);
 

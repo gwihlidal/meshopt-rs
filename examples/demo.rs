@@ -11,6 +11,15 @@ use std::path::Path;
 
 const CACHE_SIZE: usize = 16;
 
+fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    unsafe {
+        ::std::slice::from_raw_parts(
+            (p as *const T) as *const u8,
+            ::std::mem::size_of::<T>(),
+        )
+    }
+}
+
 trait FromVertex {
     fn from_vertex(&mut self, vertex: &Vertex);
 }
@@ -145,6 +154,14 @@ impl Triangle {
     }
 }
 
+impl Ord for Triangle {
+    fn cmp(&self, other: &Triangle) -> ::std::cmp::Ordering {
+        let lhs = any_as_u8_slice(&self);
+        let rhs = any_as_u8_slice(&other);
+        lhs.cmp(&rhs)
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 struct Mesh {
     vertices: Vec<Vertex>,
@@ -153,26 +170,11 @@ struct Mesh {
 
 impl PartialEq for Mesh {
     fn eq(&self, other: &Mesh) -> bool {
-        if self.vertices != other.vertices {
-            return false;
-        }
-
-        if self.indices != other.indices {
-            return false;
-        }
-
-        /*
-            std::vector<Triangle> lt, rt;
-            deindexMesh(lt, lhs);
-            deindexMesh(rt, rhs);
-
-            std::sort(lt.begin(), lt.end());
-            std::sort(rt.begin(), rt.end());
-
-            return lt.size() == rt.size() && memcmp(&lt[0], &rt[0], lt.size() * sizeof(Triangle)) == 0;
-        */
-
-        true
+        let mut lt = self.deindex();
+        let mut rt = other.deindex();
+        lt.sort();
+        rt.sort();
+        lt == rt
     }
 }
 

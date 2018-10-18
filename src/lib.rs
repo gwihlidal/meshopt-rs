@@ -70,7 +70,7 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
             optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,
             indices.as_ptr() as *const ::std::os::raw::c_uint,
             indices.len(),
-            vertex_count
+            vertex_count,
         );
     }
     optimized
@@ -82,12 +82,16 @@ pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) 
             indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
             indices.as_ptr() as *const ::std::os::raw::c_uint,
             indices.len(),
-            vertex_count
+            vertex_count,
         );
     }
 }
 
-pub fn optimize_vertex_cache_fifo(indices: &[u32], vertex_count: usize, cache_size: u32) -> Vec<u32> {
+pub fn optimize_vertex_cache_fifo(
+    indices: &[u32],
+    vertex_count: usize,
+    cache_size: u32,
+) -> Vec<u32> {
     let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
     optimized.resize(indices.len(), 0u32);
     unsafe {
@@ -102,7 +106,11 @@ pub fn optimize_vertex_cache_fifo(indices: &[u32], vertex_count: usize, cache_si
     optimized
 }
 
-pub fn optimize_vertex_cache_fifo_in_place(indices: &mut [u32], vertex_count: usize, cache_size: u32) {
+pub fn optimize_vertex_cache_fifo_in_place(
+    indices: &mut [u32],
+    vertex_count: usize,
+    cache_size: u32,
+) {
     unsafe {
         ffi::meshopt_optimizeVertexCacheFifo(
             indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
@@ -156,16 +164,8 @@ pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]
 #[inline]
 pub fn quantize_unorm(v: f32, n: i32) -> i32 {
     let scale = ((1i32 << n) - 1i32) as f32;
-    let v = if v >= 0f32 {
-        v
-    } else {
-        0f32
-    };
-    let v = if v <= 1f32 {
-        v
-    } else {
-        1f32
-    };
+    let v = if v >= 0f32 { v } else { 0f32 };
+    let v = if v <= 1f32 { v } else { 1f32 };
 
     (v * scale + 0.5f32) as i32
 }
@@ -176,21 +176,9 @@ pub fn quantize_unorm(v: f32, n: i32) -> i32 {
 #[inline]
 pub fn quantize_snorm(v: f32, n: u32) -> i32 {
     let scale = ((1 << (n - 1)) - 1) as f32;
-    let round = if v >= 0f32 {
-        0.5f32
-    } else {
-        -0.5f32
-    };
-    let v = if v >= -1f32 {
-        v
-    } else {
-        -1f32
-    };
-    let v = if v <= 1f32 {
-        v
-    } else {
-        1f32
-    };
+    let round = if v >= 0f32 { 0.5f32 } else { -0.5f32 };
+    let v = if v >= -1f32 { v } else { -1f32 };
+    let v = if v <= 1f32 { v } else { 1f32 };
 
     (v * scale + round) as i32
 }

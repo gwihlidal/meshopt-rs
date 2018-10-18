@@ -634,31 +634,28 @@ fn opt_complete(mesh: &mut Mesh) {
     mesh.vertices.resize(final_size, Default::default());
 }
 
-fn stripify(_mesh: &Mesh) {
-    println!("stripify: unimplemented");
-    //
-    /*
-    double start = timestamp();
-    std::vector<unsigned int> strip(mesh.indices.size() / 3 * 4);
-    strip.resize(meshopt_stripify(&strip[0], &mesh.indices[0], mesh.indices.size(), mesh.vertices.size()));
-    double end = timestamp();
-    
-    Mesh copy = mesh;
-    copy.indices.resize(meshopt_unstripify(&copy.indices[0], &strip[0], strip.size()));
-    
-    assert(isMeshValid(copy));
-    assert(areMeshesEqual(mesh, copy));
-    
-    meshopt_VertexCacheStatistics vcs = meshopt_analyzeVertexCache(&copy.indices[0], mesh.indices.size(), mesh.vertices.size(), kCacheSize, 0, 0);
-    meshopt_VertexCacheStatistics vcs_nv = meshopt_analyzeVertexCache(&copy.indices[0], mesh.indices.size(), mesh.vertices.size(), 32, 32, 32);
-    meshopt_VertexCacheStatistics vcs_amd = meshopt_analyzeVertexCache(&copy.indices[0], mesh.indices.size(), mesh.vertices.size(), 14, 64, 128);
-    meshopt_VertexCacheStatistics vcs_intel = meshopt_analyzeVertexCache(&copy.indices[0], mesh.indices.size(), mesh.vertices.size(), 128, 0, 0);
-    
-    printf("Stripify : ACMR %f ATVR %f (NV %f AMD %f Intel %f); %d strip indices (%.1f%%) in %.2f msec\n",
-           vcs.acmr, vcs.atvr, vcs_nv.atvr, vcs_amd.atvr, vcs_intel.atvr,
-           int(strip.size()), double(strip.size()) / double(mesh.indices.size()) * 100,
-           (end - start) * 1000);
-    */}
+fn stripify(mesh: &Mesh) {
+    let strip = meshopt::stripify(&mesh.indices, mesh.vertices.len());
+    let mut copy = mesh.clone();
+    copy.indices = meshopt::unstripify(&strip);
+
+    assert!(copy.is_valid());
+    assert_eq!(mesh, &copy);
+
+    let vcs = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcs_nv = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 32, 32, 32);
+    let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
+    let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
+
+    println!("Stripify : ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%)",
+           vcs.acmr,
+           vcs.atvr,
+           vcs_nv.atvr,
+           vcs_amd.atvr,
+           vcs_intel.atvr,
+           strip.len() as i32,
+           strip.len() as f64 / mesh.indices.len() as f64 * 100f64);
+ }
 
 fn simplify(mesh: &Mesh) {
     println!("simplify: unimplemented");

@@ -261,6 +261,42 @@ pub fn decode_vertex_buffer<T: Clone + Default>(encoded: &[u8], vertex_count: us
     result
 }
 
+pub fn stripify(indices: &[u32], vertex_count: usize) -> Vec<u32> {
+    let mut result: Vec<u32> = Vec::new();
+    result.resize(indices.len() / 3 * 4, 0u32);
+    let index_count = unsafe {
+        ffi::meshopt_stripify(
+            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count,
+        )
+    };
+    assert!(index_count <= result.len());
+    result.resize(index_count, 0u32);
+    result
+}
+
+/// Mesh unstripifier
+/// Converts a triangle strip to a triangle list
+/// Returns the number of indices in the resulting list, with destination containing new index data
+///
+/// destination must contain enough space for the worst case target index buffer ((index_count - 2) * 3 elements)
+pub fn unstripify(indices: &[u32]) -> Vec<u32> {
+    let mut result: Vec<u32> = Vec::new();
+    result.resize((indices.len() - 2) * 3, 0u32);
+    let index_count = unsafe {
+        ffi::meshopt_unstripify(
+            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+        )
+    };
+    assert!(index_count <= result.len());
+    result.resize(index_count, 0u32);
+    result
+}
+
 pub fn convert_indices_32_to_16(indices: &[u32]) -> Vec<u16> {
     let mut result: Vec<u16> = Vec::with_capacity(indices.len());
     for index in indices {

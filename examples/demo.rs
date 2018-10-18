@@ -376,10 +376,9 @@ fn process_coverage() {
     encode_vertex_coverage();
 }
 
-fn main() {
-    let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
-
-    let copy = mesh.clone();
+fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
+    let mut copy = mesh.clone();
+    opt(&mut copy);
 
     let vcs =
         meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
@@ -396,8 +395,8 @@ fn main() {
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
     println!(
-        "{:?}: ACMR {} ATVR {} (NV {} AMD {} Intel {}) Overfetch {} Overdraw {}",
-        "pirate.obj",
+        "{}: ACMR {} ATVR {} (NV {} AMD {} Intel {}) Overfetch {} Overdraw {}",
+        name,
         vcs.acmr,
         vcs.atvr,
         vcs_nv.atvr,
@@ -406,6 +405,46 @@ fn main() {
         vfs.overfetch,
         os.overdraw
     );
+}
+
+fn opt_none(_: &mut Mesh) {}
+
+fn opt_random_shuffle(_mesh: &mut Mesh) {
+    //
+}
+
+fn opt_cache(_mesh: &mut Mesh) {
+    //
+}
+
+fn opt_cache_fifo(_mesh: &mut Mesh) {
+    //
+}
+
+fn opt_overdraw(_mesh: &mut Mesh) {
+    //
+}
+fn opt_fetch(_mesh: &mut Mesh) {
+    //
+}
+fn opt_fetch_remap(_mesh: &mut Mesh) {
+    //
+}
+fn opt_complete(_mesh: &mut Mesh) {
+    //
+}
+
+fn main() {
+    let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
+
+    optimize_mesh(&mesh, "Original", opt_none);
+    optimize_mesh(&mesh, "Random", opt_random_shuffle);
+    optimize_mesh(&mesh, "Cache", opt_cache);
+    optimize_mesh(&mesh, "CacheFifo", opt_cache_fifo);
+    optimize_mesh(&mesh, "Overdraw", opt_overdraw);
+    optimize_mesh(&mesh, "Fetch", opt_fetch);
+    optimize_mesh(&mesh, "FetchMap", opt_fetch_remap);
+    optimize_mesh(&mesh, "Complete", opt_complete);
 
     process_coverage();
 }

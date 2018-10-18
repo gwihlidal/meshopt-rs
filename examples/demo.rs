@@ -48,6 +48,8 @@ impl PartialEq for Vertex {
 impl Eq for Vertex {}
 
 impl Vertex {
+    #[allow(dead_code)]
+    #[allow(unreachable_code)]
     fn pack(&self) -> PackedVertex {
         unimplemented!();
 
@@ -64,6 +66,7 @@ struct Triangle {
 }
 
 impl Triangle {
+    #[allow(dead_code)]
     fn rotate(&mut self) -> bool {
         if self.v[1] < self.v[2] && self.v[0] > self.v[1] {
             // 1 is minimum, rotate 012 => 120
@@ -89,6 +92,7 @@ struct Mesh {
 }
 
 impl Mesh {
+    #[allow(dead_code)]
     fn is_valid(&self) -> bool {
         if self.indices.len() % 3 != 0 {
             return false;
@@ -192,8 +196,10 @@ impl Mesh {
         mesh
     }
 
+    #[allow(dead_code)]
     fn save_obj(&self, path: &Path) {}
 
+    #[allow(dead_code)]
     fn create_plane(size: u32) -> Self {
         let mut mesh = Self {
             vertices: Vec::with_capacity((size as usize + 1) * (size as usize + 1)),
@@ -230,14 +236,17 @@ impl Mesh {
         mesh
     }
 
+    #[allow(dead_code)]
     fn encode_index(&self) {
         unimplemented!();
     }
 
+    #[allow(dead_code)]
     fn stripify(&self) {
         unimplemented!();
     }
 
+    #[allow(dead_code)]
     fn deindex(&self) -> Vec<Triangle> {
         let tri_count = self.indices.len() / 3;
         let mut result = Vec::with_capacity(tri_count);
@@ -353,7 +362,7 @@ fn encode_vertex_coverage() {
         t: [500, 500],
     });
 
-    let encoded = pack_vertices(&vertices);
+    let _encoded = pack_vertices(&vertices);
 }
 
 fn process_coverage() {

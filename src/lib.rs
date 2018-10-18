@@ -77,8 +77,6 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
 }
 
 pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) {
-    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
-    optimized.resize(indices.len(), 0u32);
     unsafe {
         ffi::meshopt_optimizeVertexCache(
             indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
@@ -105,8 +103,6 @@ pub fn optimize_vertex_cache_fifo(indices: &[u32], vertex_count: usize, cache_si
 }
 
 pub fn optimize_vertex_cache_fifo_in_place(indices: &mut [u32], vertex_count: usize, cache_size: u32) {
-    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
-    optimized.resize(indices.len(), 0u32);
     unsafe {
         ffi::meshopt_optimizeVertexCacheFifo(
             indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,

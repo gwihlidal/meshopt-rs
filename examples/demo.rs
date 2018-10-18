@@ -59,6 +59,12 @@ impl Vertex {
     }
 }
 
+impl meshopt::DecodePosition for Vertex {
+    fn decode_position(&self) -> [f32; 3] {
+        self.p
+    }
+}
+
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
 #[repr(C)]
 struct Triangle {
@@ -197,7 +203,7 @@ impl Mesh {
     }
 
     #[allow(dead_code)]
-    fn save_obj(&self, path: &Path) {}
+    fn save_obj(&self, _path: &Path) {}
 
     #[allow(dead_code)]
     fn create_plane(size: u32) -> Self {
@@ -373,21 +379,33 @@ fn process_coverage() {
 fn main() {
     let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
 
+    let copy = mesh.clone();
+
     let vcs =
-        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+        meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
 
-    let vfs = meshopt::analyze_vertex_fetch(&mesh.indices, mesh.vertices.len(), mem::size_of::<Vertex>());
+    let vfs =
+        meshopt::analyze_vertex_fetch(&copy.indices, copy.vertices.len(), mem::size_of::<Vertex>());
 
-    let vcs_nv =
-        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), 32, 32, 32);
+    let os = meshopt::analyze_overdraw(&copy.indices, &copy.vertices);
 
-    let vcs_amd =
-        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), 14, 64, 128);
+    let vcs_nv = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 32, 32, 32);
 
-    let vcs_intel =
-        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), 128, 0, 0);
+    let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
 
-    println!("{:?}: ACMR {} ATVR {} (NV {} AMD {} Intel {}) Overfetch {}", "pirate.obj", vcs.acmr, vcs.atvr, vcs_nv.atvr, vcs_amd.atvr, vcs_intel.atvr, vfs.overfetch);
-    
+    let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
+
+    println!(
+        "{:?}: ACMR {} ATVR {} (NV {} AMD {} Intel {}) Overfetch {} Overdraw {}",
+        "pirate.obj",
+        vcs.acmr,
+        vcs.atvr,
+        vcs_nv.atvr,
+        vcs_amd.atvr,
+        vcs_intel.atvr,
+        vfs.overfetch,
+        os.overdraw
+    );
+
     process_coverage();
 }

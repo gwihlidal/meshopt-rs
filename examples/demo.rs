@@ -768,90 +768,59 @@ fn simplify(mesh: &Mesh) {
 }
 
 fn encode_index(mesh: &Mesh) {
-    //
-    /*
-    double start = timestamp();
-    
-    std::vector<unsigned char> buffer(meshopt_encodeIndexBufferBound(mesh.indices.size(), mesh.vertices.size()));
-    buffer.resize(meshopt_encodeIndexBuffer(&buffer[0], buffer.size(), &mesh.indices[0], mesh.indices.size()));
-    
-    double middle = timestamp();
-    
-    // using meshopt_Buffer instead of std::vector to avoid memset overhead
-    meshopt_Buffer<unsigned int> result(mesh.indices.size());
-    int res = meshopt_decodeIndexBuffer(&result[0], mesh.indices.size(), &buffer[0], buffer.size());
-    assert(res == 0);
-    (void)res;
-    
-    double end = timestamp();
-    
-    size_t csize = compress(buffer);
-    
-    for (size_t i = 0; i < mesh.indices.size(); i += 3)
-    {
-        assert(
-            (result[i + 0] == mesh.indices[i + 0] && result[i + 1] == mesh.indices[i + 1] && result[i + 2] == mesh.indices[i + 2]) ||
-            (result[i + 1] == mesh.indices[i + 0] && result[i + 2] == mesh.indices[i + 1] && result[i + 0] == mesh.indices[i + 2]) ||
-            (result[i + 2] == mesh.indices[i + 0] && result[i + 0] == mesh.indices[i + 1] && result[i + 1] == mesh.indices[i + 2]));
+    let encoded = meshopt::encode_index_buffer(&mesh.indices, mesh.vertices.len());
+    let decoded = meshopt::decode_index_buffer::<u32>(&encoded, mesh.indices.len());
+    let compressed = compress(&encoded);
+    for i in (0..mesh.indices.len()).step_by(3) {
+        assert!(
+            (decoded[i + 0] == mesh.indices[i + 0]
+                && decoded[i + 1] == mesh.indices[i + 1]
+                && decoded[i + 2] == mesh.indices[i + 2])
+                || (decoded[i + 1] == mesh.indices[i + 0]
+                    && decoded[i + 2] == mesh.indices[i + 1]
+                    && decoded[i + 0] == mesh.indices[i + 2])
+                || (decoded[i + 2] == mesh.indices[i + 0]
+                    && decoded[i + 0] == mesh.indices[i + 1]
+                    && decoded[i + 1] == mesh.indices[i + 2])
+        );
     }
     
-    if (mesh.vertices.size() <= 65536)
-    {
-        meshopt_Buffer<unsigned short> result2(mesh.indices.size());
-        int res2 = meshopt_decodeIndexBuffer(&result2[0], mesh.indices.size(), &buffer[0], buffer.size());
-        assert(res2 == 0);
-        (void)res2;
-    
-        for (size_t i = 0; i < mesh.indices.size(); i += 3)
-        {
-            assert(result[i + 0] == result2[i + 0] && result[i + 1] == result2[i + 1] && result[i + 2] == result2[i + 2]);
+    if mesh.vertices.len() <= 65536 {
+        let decoded2 = meshopt::decode_index_buffer::<u16>(&encoded, mesh.indices.len());
+        for i in (0..mesh.indices.len()).step_by(3) {
+            assert!(
+                decoded[i + 0] == decoded2[i + 0] as u32
+                    && decoded[i + 1] == decoded2[i + 1] as u32
+                    && decoded[i + 2] == decoded2[i + 2] as u32
+            );
         }
     }
     
-    printf("IdxCodec : %.1f bits/triangle (post-deflate %.1f bits/triangle); encode %.2f msec, decode %.2f msec (%.2f GB/s)\n",
-           double(buffer.size() * 8) / double(mesh.indices.size() / 3),
-           double(csize * 8) / double(mesh.indices.size() / 3),
-           (middle - start) * 1000,
-           (end - middle) * 1000,
-           (double(result.size * 4) / (1 << 30)) / (end - middle));
-    */
+    println!(
+        "IdxCodec : {} bits/triangle (post-deflate {} bits/triangle);",
+        (encoded.len() * 8) as f64 / (mesh.indices.len() / 3) as f64,
+        (compressed.len() * 8) as f64 / (mesh.indices.len() / 3) as f64
+    );
 }
 
-fn encode_vertex<T>(mesh: &Mesh, name: &str) {
-    //
-    /*
-    std::vector<PV> pv(mesh.vertices.size());
-    packMesh(pv, mesh.vertices);
+fn encode_vertex<T: Clone + Default + Eq>(mesh: &Mesh, name: &str) {
+    let mut packed: Vec<T> = Vec::new();
+    packed.resize(mesh.vertices.len(), Default::default());
+    pack_mesh(&mut packed, &mesh.vertices);
     
-    double start = timestamp();
+    let encoded = meshopt::encode_vertex_buffer(&packed);
+    let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
+    assert!(packed == decoded);
     
-    std::vector<unsigned char> vbuf(meshopt_encodeVertexBufferBound(mesh.vertices.size(), sizeof(PV)));
-    vbuf.resize(meshopt_encodeVertexBuffer(&vbuf[0], vbuf.size(), &pv[0], mesh.vertices.size(), sizeof(PV)));
+    let compressed = compress(&encoded);
     
-    double middle = timestamp();
-    
-    // using meshopt_Buffer instead of std::vector to avoid memset overhead
-    meshopt_Buffer<PV> result(mesh.vertices.size());
-    int res = meshopt_decodeVertexBuffer(&result[0], mesh.vertices.size(), sizeof(PV), &vbuf[0], vbuf.size());
-    assert(res == 0);
-    (void)res;
-    
-    double end = timestamp();
-    
-    assert(memcmp(&pv[0], &result[0], pv.size() * sizeof(PV)) == 0);
-    
-    size_t csize = compress(vbuf);
-    
-    printf("VtxCodec%1s: %.1f bits/vertex (post-deflate %.1f bits/vertex); encode %.2f msec, decode %.2f msec (%.2f GB/s)\n", pvn,
-           double(vbuf.size() * 8) / double(mesh.vertices.size()),
-           double(csize * 8) / double(mesh.vertices.size()),
-           (middle - start) * 1000,
-           (end - middle) * 1000,
-           (double(result.size * sizeof(PV)) / (1 << 30)) / (end - middle));
-    */
+    println!("VtxCodec{}: {} bits/vertex (post-deflate {} bits/vertex);",
+        name,
+        (encoded.len() * 8) as f64 / (mesh.vertices.len()) as f64,
+        (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64);
 }
 
-fn pack_vertex<T: FromVertex + Default>(mesh: &Mesh, name: &str) {
+fn pack_vertex<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     let mut vertices: Vec<T> = Vec::with_capacity(mesh.vertices.len());
     for vertex in &mesh.vertices {
         let mut packed_vertex = T::default();
@@ -860,13 +829,13 @@ fn pack_vertex<T: FromVertex + Default>(mesh: &Mesh, name: &str) {
     }
     pack_mesh(&mut vertices, &mesh.vertices);
 
-    let compressed_size = compress(&mut vertices);
+    let compressed = compress(&mut vertices);
 
     println!(
         "VtxPack{}  : {} bits/vertex (post-deflate {} bits/vertices)",
         name,
         (vertices.len() * mem::size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
-        (compressed_size * 8) as f64 / mesh.vertices.len() as f64
+        (compressed.len() * 8) as f64 / mesh.vertices.len() as f64
     );
 }
 
@@ -874,7 +843,7 @@ fn pack_mesh<T, U>(output: &mut [T], input: &[U]) {
     println!("pack_mesh: unimplemented");
 }
 
-fn compress<T>(data: &mut [T]) -> usize {
+fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
     let input_size = data.len() * mem::size_of::<T>();
     let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as u32);
     let mut compress_buffer: Vec<u8> = Vec::new();
@@ -884,7 +853,7 @@ fn compress<T>(data: &mut [T]) -> usize {
         15,
         miniz_oxide_c_api::MZ_DEFAULT_STRATEGY,
     );
-    unsafe {
+    let compress_size = unsafe {
         miniz_oxide_c_api::tdefl_compress_mem_to_mem(
             compress_buffer.as_mut_ptr() as *mut ::libc::c_void,
             compress_buffer.len(),
@@ -892,7 +861,9 @@ fn compress<T>(data: &mut [T]) -> usize {
             input_size,
             flags as i32,
         )
-    }
+    };
+    compress_buffer.resize(compress_size as usize, 0u8);
+    compress_buffer
 }
 
 fn main() {

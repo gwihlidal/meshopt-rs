@@ -1,6 +1,7 @@
 extern crate float_cmp;
 extern crate meshopt;
 extern crate tobj;
+extern crate miniz_oxide_c_api;
 
 use float_cmp::ApproxEqUlps;
 use std::mem;
@@ -108,7 +109,7 @@ impl PartialEq for Vertex {
 impl Eq for Vertex {}
 
 impl Vertex {
-        }
+}
 
 impl meshopt::DecodePosition for Vertex {
     fn decode_position(&self) -> [f32; 3] {
@@ -453,7 +454,7 @@ fn encode_index_coverage() {
 		(void)result;
 
 		assert(result < 0);
-}
+	}
 
 	// check that decoder doesn't accept malformed headers
 	{
@@ -509,7 +510,7 @@ fn encode_vertex_coverage() {
 			assert(result == buffer.size());
 		else
 			assert(result == 0);
-}
+	}
 
 	// check that decode is memory-safe; note that we reallocate the buffer for each try to make sure ASAN can verify buffer access
 	PV destination[vertex_count];
@@ -609,7 +610,7 @@ fn opt_random_shuffle(_mesh: &mut Mesh) {
 		result[i * 3 + 0] = mesh.indices[faces[i] * 3 + 0];
 		result[i * 3 + 1] = mesh.indices[faces[i] * 3 + 1];
 		result[i * 3 + 2] = mesh.indices[faces[i] * 3 + 2];
-}
+	}
 
 	mesh.indices.swap(result);
     */
@@ -784,7 +785,7 @@ fn simplify(mesh: &Mesh) {
 		       vcs0.acmr, vcsN.acmr, vfs0.overfetch, vfsN.overfetch,
 		       double(vbuf.size()) / double(vertices.size()) * 8,
 		       double(ibuf.size()) / double(indices.size() / 3) * 8);
-}
+	}
     */
 }
 
@@ -826,7 +827,7 @@ fn encode_index(mesh: &Mesh) {
 		for (size_t i = 0; i < mesh.indices.size(); i += 3)
 		{
 			assert(result[i + 0] == result2[i + 0] && result[i + 1] == result2[i + 1] && result[i + 2] == result2[i + 2]);
-}
+		}
 	}
 
 	printf("IdxCodec : %.1f bits/triangle (post-deflate %.1f bits/triangle); encode %.2f msec, decode %.2f msec (%.2f GB/s)\n",

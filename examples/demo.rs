@@ -1,9 +1,9 @@
 extern crate float_cmp;
+extern crate libc;
 extern crate meshopt;
 extern crate miniz_oxide_c_api;
 extern crate rand;
 extern crate tobj;
-extern crate libc;
 
 use float_cmp::ApproxEqUlps;
 use rand::{thread_rng, Rng};
@@ -274,7 +274,9 @@ impl Mesh {
     }
 
     #[allow(dead_code)]
-    fn save_obj(&self, _path: &Path) {}
+    fn save_obj(&self, _path: &Path) {
+        println!("save_obj: unimplemented");
+    }
 
     #[allow(dead_code)]
     fn create_plane(size: u32) -> Self {
@@ -344,8 +346,8 @@ fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u
     remap.resize(index_count, 0u32);
     let vertex_count = unsafe {
         meshopt::ffi::meshopt_generateVertexRemap(
-            remap.as_ptr() as *mut ::std::os::raw::c_uint, // vb
-            ::std::ptr::null(),                            // ib
+            remap.as_ptr() as *mut ::std::os::raw::c_uint,
+            ::std::ptr::null(),
             index_count,
             vertices.as_ptr() as *const ::std::os::raw::c_void,
             index_count,
@@ -359,12 +361,6 @@ fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u
 fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
     let conservative_size =
         unsafe { meshopt::ffi::meshopt_encodeVertexBufferBound(input.len(), mem::size_of::<T>()) };
-
-    println!(
-        "Conservative size is: {}, sizeof is: {}",
-        conservative_size,
-        mem::size_of::<T>()
-    );
 
     let mut encoded_data: Vec<u8> = Vec::new();
     encoded_data.resize(conservative_size, 0u8);
@@ -380,24 +376,11 @@ fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
     };
 
     encoded_data.resize(encoded_size, 0u8);
-    println!("Encoded size is: {}", encoded_size);
     encoded_data
-
-    /*assert_eq!(encoded_data.len() % mem::size_of::<T>(), 0);
-    
-    let typed_data = unsafe {
-        let typed_count = encoded_data.len() / mem::size_of::<T>();
-        let typed_ptr = encoded_data.as_mut_ptr() as *mut T;
-        Vec::from_raw_parts(typed_ptr,
-                            typed_count,
-                            typed_count)
-    };
-    
-    mem::forget(encoded_data);
-    typed_data*/
 }
 
 fn encode_index_coverage() {
+    println!("encode_index_coverage: unimplemented");
     //unimplemented!();
     /*
     // note: 4 6 5 triangle here is a combo-breaker:
@@ -459,10 +442,11 @@ fn encode_index_coverage() {
     
         assert(result < 0);
     }
-    */
-}
+    */}
 
 fn encode_vertex_coverage() {
+    println!("encode_vertex_coverage: unimplemented");
+
     let mut vertices: Vec<PackedVertexOct> = Vec::with_capacity(4);
 
     vertices.push(PackedVertexOct {
@@ -584,7 +568,9 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
     );
 }
 
-fn opt_none(_: &mut Mesh) {}
+fn opt_none(_: &mut Mesh) {
+    // no-op
+}
 
 fn opt_random_shuffle(mesh: &mut Mesh) {
     let face_count = mesh.indices.len() / 3;
@@ -625,6 +611,7 @@ fn opt_fetch(mesh: &mut Mesh) {
 }
 
 fn opt_fetch_remap(_mesh: &mut Mesh) {
+    println!("opt_fetch_remap: unimplemented");
     // this produces results equivalent to optFetch, but can be used to remap multiple vertex streams
     //std::vector<unsigned int> remap(mesh.vertices.size());
     //meshopt_optimizeVertexFetchRemap(&remap[0], &mesh.indices[0], mesh.indices.size(), mesh.vertices.size());
@@ -642,12 +629,13 @@ fn opt_complete(mesh: &mut Mesh) {
     //meshopt_optimizeOverdraw(&mesh.indices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), kThreshold);
 
     // vertex fetch optimization should go last as it depends on the final index order
-    let next_vertex =
+    let final_size =
         meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
-    mesh.vertices.resize(next_vertex, Default::default());
+    mesh.vertices.resize(final_size, Default::default());
 }
 
 fn stripify(_mesh: &Mesh) {
+    println!("stripify: unimplemented");
     //
     /*
     double start = timestamp();
@@ -670,10 +658,10 @@ fn stripify(_mesh: &Mesh) {
            vcs.acmr, vcs.atvr, vcs_nv.atvr, vcs_amd.atvr, vcs_intel.atvr,
            int(strip.size()), double(strip.size()) / double(mesh.indices.size()) * 100,
            (end - start) * 1000);
-    */
-}
+    */}
 
 fn simplify(mesh: &Mesh) {
+    println!("simplify: unimplemented");
     /*
     static const size_t lod_count = 5;
     
@@ -883,7 +871,7 @@ fn pack_vertex<T: FromVertex + Default>(mesh: &Mesh, name: &str) {
 }
 
 fn pack_mesh<T, U>(output: &mut [T], input: &[U]) {
-    //
+    println!("pack_mesh: unimplemented");
 }
 
 fn compress<T>(data: &mut [T]) -> usize {

@@ -1,6 +1,7 @@
 pub mod ffi;
 
 pub type VertexCacheStatistics = ffi::meshopt_VertexCacheStatistics;
+pub type VertexFetchStatistics = ffi::meshopt_VertexFetchStatistics;
 
 pub fn analyze_vertex_cache(
     indices: &[u32],
@@ -17,6 +18,21 @@ pub fn analyze_vertex_cache(
             cache_size,
             warp_size,
             prim_group_size,
+        )
+    }
+}
+
+pub fn analyze_vertex_fetch(
+    indices: &[u32],
+    vertex_count: usize,
+    vertex_size: usize,
+) -> VertexFetchStatistics {
+    unsafe {
+        ffi::meshopt_analyzeVertexFetch(
+            indices.as_ptr() as *mut ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count,
+            vertex_size,
         )
     }
 }

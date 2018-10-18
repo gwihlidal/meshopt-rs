@@ -1,10 +1,8 @@
+extern crate float_cmp;
 extern crate meshopt;
 extern crate tobj;
 
-#[macro_use]
-extern crate float_cmp;
-use float_cmp::*;
-
+use float_cmp::ApproxEqUlps;
 use std::mem;
 use std::path::Path;
 
@@ -369,6 +367,18 @@ fn main() {
     let vcs =
         meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
 
-    println!("{:?}: ACMR {}", "pirate.obj", vcs.acmr);
+    let vfs = meshopt::analyze_vertex_fetch(&mesh.indices, mesh.vertices.len(), mem::size_of::<Vertex>());
+
+    let vcs_nv =
+        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), 32, 32, 32);
+
+    let vcs_amd =
+        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), 14, 64, 128);
+
+    let vcs_intel =
+        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), 128, 0, 0);
+
+    println!("{:?}: ACMR {} ATVR {} (NV {} AMD {} Intel {}) Overfetch {}", "pirate.obj", vcs.acmr, vcs.atvr, vcs_nv.atvr, vcs_amd.atvr, vcs_intel.atvr, vfs.overfetch);
+    
     process_coverage();
 }

@@ -1,6 +1,6 @@
 extern crate cc;
 
-//use std::env;
+use std::env;
 
 fn main() {
     let mut build = cc::Build::new();
@@ -26,14 +26,14 @@ fn main() {
         build.file(&source_file);
     }
 
-    //let target = env::var("TARGET").unwrap();
-    /*if target.contains("darwin") {
+    let target = env::var("TARGET").unwrap();
+    if target.contains("darwin") {
         build
             .flag("-std=c++11")
             .cpp(true)
             .cpp_link_stdlib("c++")
             .cpp_set_stdlib("c++");
-    }*/
+    }
 
     build.compile("meshopt_cpp");
 }

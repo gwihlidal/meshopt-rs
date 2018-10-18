@@ -2,8 +2,10 @@ extern crate float_cmp;
 extern crate meshopt;
 extern crate tobj;
 extern crate miniz_oxide_c_api;
+extern crate rand;
 
 use float_cmp::ApproxEqUlps;
+use rand::{thread_rng, Rng};
 use std::mem;
 use std::path::Path;
 
@@ -593,27 +595,19 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
 
 fn opt_none(_: &mut Mesh) {}
 
-fn opt_random_shuffle(_mesh: &mut Mesh) {
-    //
-    /*
-    std::vector<unsigned int> faces(mesh.indices.size() / 3);
+fn opt_random_shuffle(mesh: &mut Mesh) {
+    let face_count = mesh.indices.len() / 3;
+    let mut faces: Vec<usize> = (0..face_count).map(|x| x).collect();
+    thread_rng().shuffle(&mut faces);
 
-	for (size_t i = 0; i < faces.size(); ++i)
-		faces[i] = static_cast<unsigned int>(i);
+    let mut result: Vec<u32> = Vec::with_capacity(mesh.indices.len());
+    faces.iter().for_each(|face| {
+       result.push(mesh.indices[faces[*face as usize] * 3 + 0]);
+       result.push(mesh.indices[faces[*face as usize] * 3 + 1]);
+       result.push(mesh.indices[faces[*face as usize] * 3 + 2]);
+    });
 
-	std::random_shuffle(faces.begin(), faces.end());
-
-	std::vector<unsigned int> result(mesh.indices.size());
-
-	for (size_t i = 0; i < faces.size(); ++i)
-	{
-		result[i * 3 + 0] = mesh.indices[faces[i] * 3 + 0];
-		result[i * 3 + 1] = mesh.indices[faces[i] * 3 + 1];
-		result[i * 3 + 2] = mesh.indices[faces[i] * 3 + 2];
-	}
-
-	mesh.indices.swap(result);
-    */
+    mesh.indices = result;
 }
 
 fn opt_cache(mesh: &mut Mesh) {

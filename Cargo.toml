@@ -37,3 +37,4 @@ cc = { version = "1.0.25", features = ["parallel"] }
 tobj = "0.1.6"
 float-cmp = "0.4.0"
 miniz_oxide_c_api = "0.2.0"
+rand = "0.5.5"

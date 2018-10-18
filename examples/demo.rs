@@ -626,8 +626,8 @@ fn opt_overdraw(_mesh: &mut Mesh) {
 	//meshopt_optimizeOverdraw(&mesh.indices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), kThreshold);
 }
 
-fn opt_fetch(_mesh: &mut Mesh) {
-    //meshopt_optimizeVertexFetch(&mesh.vertices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0], mesh.vertices.size(), sizeof(Vertex));
+fn opt_fetch(mesh: &mut Mesh) {
+    meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
 }
 
 fn opt_fetch_remap(_mesh: &mut Mesh) {
@@ -648,7 +648,8 @@ fn opt_complete(mesh: &mut Mesh) {
 	//meshopt_optimizeOverdraw(&mesh.indices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), kThreshold);
 
 	// vertex fetch optimization should go last as it depends on the final index order
-	//meshopt_optimizeVertexFetch(&mesh.vertices[0], &mesh.indices[0], mesh.indices.size(), &mesh.vertices[0], mesh.vertices.size(), sizeof(Vertex));
+    let next_vertex = meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
+    mesh.vertices.resize(next_vertex, Default::default());
 }
 
 fn stripify(_mesh: &Mesh) {
@@ -911,8 +912,8 @@ fn main() {
     optimize_mesh(&mesh, "Complete", opt_complete);
 
     let copy = mesh.clone();
-	//meshopt_optimizeVertexCache(&copy.indices[0], &copy.indices[0], copy.indices.size(), copy.vertices.size());
-	//meshopt_optimizeVertexFetch(&copy.vertices[0], &copy.indices[0], copy.indices.size(), &copy.vertices[0], copy.vertices.size(), sizeof(Vertex));
+    meshopt::optimize_vertex_cache_in_place(&mut copy.indices, copy.vertices.len());
+    meshopt::optimize_vertex_fetch_in_place(&mut copy.indices, &mut copy.vertices);
 
 	stripify(&copy);
 

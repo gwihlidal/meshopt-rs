@@ -118,6 +118,42 @@ pub fn optimize_vertex_cache_fifo_in_place(indices: &mut [u32], vertex_count: us
     }
 }
 
+/// Vertex fetch cache optimizer
+/// Reorders vertices and changes indices to reduce the amount of GPU memory fetches during vertex processing
+///
+/// destination must contain enough space for the resulting vertex buffer (vertex_count elements)
+/// indices is used both as an input and as an output index buffer
+pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: &[T]) -> Vec<T> {
+    let mut result: Vec<T> = Vec::new();
+    result.resize(vertices.len(), T::default());
+    let next_vertex = unsafe {
+        ffi::meshopt_optimizeVertexFetch(
+            result.as_mut_ptr() as *mut ::std::os::raw::c_void,
+            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.len(),
+            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            vertices.len(),
+            mem::size_of::<T>(),
+        )
+    };
+    result.resize(next_vertex, T::default());
+    result
+}
+
+pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]) -> usize {
+    let next_vertex = unsafe {
+        ffi::meshopt_optimizeVertexFetch(
+            vertices.as_mut_ptr() as *mut ::std::os::raw::c_void,
+            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.len(),
+            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            vertices.len(),
+            mem::size_of::<T>(),
+        )
+    };
+    next_vertex
+}
+
 // Quantize a float in [0..1] range into an N-bit fixed point unorm value
 // Assumes reconstruction function (q / (2^N-1)), which is the case for fixed-function normalized fixed point conversion
 // Maximum reconstruction error: 1/2^(N+1)

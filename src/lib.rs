@@ -36,7 +36,7 @@ pub fn analyze_vertex_fetch(
 ) -> VertexFetchStatistics {
     unsafe {
         ffi::meshopt_analyzeVertexFetch(
-            indices.as_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
             indices.len(),
             vertex_count,
             vertex_size,
@@ -60,11 +60,67 @@ pub fn analyze_overdraw<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> O
     }
 }
 
-/**
- * Quantize a float in [0..1] range into an N-bit fixed point unorm value
- * Assumes reconstruction function (q / (2^N-1)), which is the case for fixed-function normalized fixed point conversion
- * Maximum reconstruction error: 1/2^(N+1)
- */
+/// Vertex transform cache optimizer
+/// Reorders indices to reduce the number of GPU vertex shader invocations
+pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
+    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
+    optimized.resize(indices.len(), 0u32);
+    unsafe {
+        ffi::meshopt_optimizeVertexCache(
+            optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count
+        );
+    }
+    optimized
+}
+
+pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) {
+    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
+    optimized.resize(indices.len(), 0u32);
+    unsafe {
+        ffi::meshopt_optimizeVertexCache(
+            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count
+        );
+    }
+}
+
+pub fn optimize_vertex_cache_fifo(indices: &[u32], vertex_count: usize, cache_size: u32) -> Vec<u32> {
+    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
+    optimized.resize(indices.len(), 0u32);
+    unsafe {
+        ffi::meshopt_optimizeVertexCacheFifo(
+            optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count,
+            cache_size,
+        );
+    }
+    optimized
+}
+
+pub fn optimize_vertex_cache_fifo_in_place(indices: &mut [u32], vertex_count: usize, cache_size: u32) {
+    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
+    optimized.resize(indices.len(), 0u32);
+    unsafe {
+        ffi::meshopt_optimizeVertexCacheFifo(
+            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count,
+            cache_size,
+        );
+    }
+}
+
+// Quantize a float in [0..1] range into an N-bit fixed point unorm value
+// Assumes reconstruction function (q / (2^N-1)), which is the case for fixed-function normalized fixed point conversion
+// Maximum reconstruction error: 1/2^(N+1)
 #[inline]
 pub fn quantize_unorm(v: f32, n: i32) -> i32 {
     let scale = ((1i32 << n) - 1i32) as f32;
@@ -82,11 +138,9 @@ pub fn quantize_unorm(v: f32, n: i32) -> i32 {
     (v * scale + 0.5f32) as i32
 }
 
-/**
- * Quantize a float in [-1..1] range into an N-bit fixed point snorm value
- * Assumes reconstruction function (q / (2^(N-1)-1)), which is the case for fixed-function normalized fixed point conversion (except early OpenGL versions)
- * Maximum reconstruction error: 1/2^N
- */
+// Quantize a float in [-1..1] range into an N-bit fixed point snorm value
+// Assumes reconstruction function (q / (2^(N-1)-1)), which is the case for fixed-function normalized fixed point conversion (except early OpenGL versions)
+// Maximum reconstruction error: 1/2^N
 #[inline]
 pub fn quantize_snorm(v: f32, n: u32) -> i32 {
     let scale = ((1 << (n - 1)) - 1) as f32;
@@ -115,12 +169,10 @@ union FloatUInt {
     ui: u32,
 }
 
-/**
- * Quantize a float into half-precision floating point value
- * Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
- * Representable magnitude range: [6e-5; 65504]
- * Maximum relative reconstruction error: 5e-4
- */
+// Quantize a float into half-precision floating point value
+// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
+// Representable magnitude range: [6e-5; 65504]
+// Maximum relative reconstruction error: 5e-4
 #[inline]
 pub fn quantize_half(v: f32) -> u16 {
     let u = FloatUInt { fl: v };
@@ -143,11 +195,9 @@ pub fn quantize_half(v: f32) -> u16 {
     (s | h) as u16
 }
 
-/**
- * Quantize a float into a floating point value with a limited number of significant mantissa bits
- * Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
- * Assumes N is in a valid mantissa precision range, which is 1..23
- */
+// Quantize a float into a floating point value with a limited number of significant mantissa bits
+// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
+// Assumes N is in a valid mantissa precision range, which is 1..23
 pub fn quantize_float(v: f32, n: i32) -> f32 {
     let mut u = FloatUInt { fl: v };
     let mut ui = unsafe { u.ui };

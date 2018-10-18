@@ -468,8 +468,12 @@ fn opt_cache(_mesh: &mut Mesh) {
     //
 }
 
-fn opt_cache_fifo(_mesh: &mut Mesh) {
-    //
+fn opt_cache(mesh: &mut Mesh) {
+    meshopt::optimize_vertex_cache_in_place(&mut mesh.indices, mesh.vertices.len());
+}
+
+fn opt_cache_fifo(mesh: &mut Mesh) {
+    meshopt::optimize_vertex_cache_fifo_in_place(&mut mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32);
 }
 
 fn opt_overdraw(_mesh: &mut Mesh) {

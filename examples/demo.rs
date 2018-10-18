@@ -8,6 +8,10 @@ use std::path::Path;
 
 const CACHE_SIZE: usize = 16;
 
+trait FromVertex {
+    fn from_vertex(&mut self, vertex: &Vertex);
+}
+
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 struct PackedVertex {
@@ -16,12 +20,68 @@ struct PackedVertex {
     t: [u16; 2],
 }
 
+impl FromVertex for PackedVertex {
+    fn from_vertex(&mut self, vertex: &Vertex) {
+        self.p[0] = meshopt::quantize_half(vertex.p[0]) as u16;
+        self.p[1] = meshopt::quantize_half(vertex.p[1]) as u16;
+        self.p[2] = meshopt::quantize_half(vertex.p[2]) as u16;
+        self.p[3] = 0u16;
+
+        self.n[0] = meshopt::quantize_snorm(vertex.n[0], 8) as u8;
+        self.n[1] = meshopt::quantize_snorm(vertex.n[1], 8) as u8;
+        self.n[2] = meshopt::quantize_snorm(vertex.n[2], 8) as u8;
+        self.n[3] = 0u8;
+
+        self.t[0] = meshopt::quantize_half(vertex.t[0]) as u16;
+        self.t[1] = meshopt::quantize_half(vertex.t[1]) as u16;
+    }
+}
+
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 struct PackedVertexOct {
     p: [u16; 3],
     n: [u8; 2], // octahedron encoded normal, aliases .pw
     t: [u16; 2],
+}
+
+impl FromVertex for PackedVertexOct {
+    fn from_vertex(&mut self, vertex: &Vertex) {
+        self.p[0] = meshopt::quantize_half(vertex.p[0]) as u16;
+        self.p[1] = meshopt::quantize_half(vertex.p[1]) as u16;
+        self.p[2] = meshopt::quantize_half(vertex.p[2]) as u16;
+
+        let nsum = vertex.n[0].abs() + vertex.n[1].abs() + vertex.n[2].abs();
+        let nx = vertex.n[0] / nsum;
+        let ny = vertex.n[1] / nsum;
+        let nz = vertex.n[2];
+
+        let nu = if nz >= 0f32 {
+            nx
+        } else {
+            (1f32 - ny.abs()) * if nx >= 0f32 {
+                1f32
+            } else {
+                -1f32
+            }
+        };
+
+        let nv = if nz >= 0f32 {
+            ny
+        } else {
+            (1f32 - nx.abs()) * if ny >= 0f32 {
+                1f32
+            } else {
+                -1f32
+            }
+        };
+
+        self.n[0] = meshopt::quantize_snorm(nu, 8) as u8;
+        self.n[1] = meshopt::quantize_snorm(nv, 8) as u8;
+
+        self.t[0] = meshopt::quantize_half(vertex.t[0]) as u16;
+        self.t[1] = meshopt::quantize_half(vertex.t[1]) as u16;
+    }
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialOrd)]
@@ -48,16 +108,7 @@ impl PartialEq for Vertex {
 impl Eq for Vertex {}
 
 impl Vertex {
-    #[allow(dead_code)]
-    #[allow(unreachable_code)]
-    fn pack(&self) -> PackedVertex {
-        unimplemented!();
-
-        PackedVertex {
-            ..Default::default()
         }
-    }
-}
 
 impl meshopt::DecodePosition for Vertex {
     fn decode_position(&self) -> [f32; 3] {
@@ -432,6 +483,31 @@ fn opt_fetch_remap(_mesh: &mut Mesh) {
 }
 fn opt_complete(_mesh: &mut Mesh) {
     //
+
+fn pack_vertex<T: FromVertex + Default>(mesh: &Mesh, name: &str) {
+    let mut vertices: Vec<T> = Vec::with_capacity(mesh.vertices.len());
+    for vertex in &mesh.vertices {
+        let mut packed_vertex = T::default();
+        packed_vertex.from_vertex(&vertex);
+        vertices.push(packed_vertex);
+    }
+    pack_mesh(&mut vertices, &mesh.vertices);
+
+    let compressed_size = compress(&mut vertices);
+
+    println!(
+        "VtxPack{}  : {} bits/vertex (post-deflate {} bits/vertices)",
+        name,
+        (vertices.len() * mem::size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
+        (compressed_size * 8) as f64 / mesh.vertices.len() as f64);
+}
+
+fn pack_mesh<T, U>(output: &mut [T], input: &[U]) {
+
+}
+
+fn compress<T>(vertices: &mut [T]) -> usize {
+    0
 }
 
 fn main() {

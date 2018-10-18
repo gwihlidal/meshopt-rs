@@ -539,7 +539,7 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
     println!(
-        "{}: ACMR {} ATVR {} (NV {} AMD {} Intel {}) Overfetch {} Overdraw {}",
+        "{}: ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}) Overfetch {:.6} Overdraw {:.6}",
         name,
         vcs.acmr,
         vcs.atvr,
@@ -789,7 +789,7 @@ fn encode_index(mesh: &Mesh) {
     }
 
     println!(
-        "IdxCodec : {} bits/triangle (post-deflate {} bits/triangle);",
+        "IdxCodec : {:.1} bits/triangle (post-deflate {:.1} bits/triangle);",
         (encoded.len() * 8) as f64 / (mesh.indices.len() / 3) as f64,
         (compressed.len() * 8) as f64 / (mesh.indices.len() / 3) as f64
     );
@@ -806,7 +806,7 @@ fn encode_vertex<T: Clone + Default + Eq>(mesh: &Mesh, name: &str) {
 
     let compressed = compress(&encoded);
     
-    println!("VtxCodec{}: {} bits/vertex (post-deflate {} bits/vertex);",
+    println!("VtxCodec{}: {:.1} bits/vertex (post-deflate {:.1} bits/vertex);",
         name,
         (encoded.len() * 8) as f64 / (mesh.vertices.len()) as f64,
         (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64);
@@ -824,7 +824,7 @@ fn pack_vertex<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     let compressed = compress(&mut vertices);
 
     println!(
-        "VtxPack{}  : {} bits/vertex (post-deflate {} bits/vertices)",
+        "VtxPack{}  : {:.1} bits/vertex (post-deflate {:.1} bits/vertices)",
         name,
         (vertices.len() * mem::size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
         (compressed.len() * 8) as f64 / mesh.vertices.len() as f64

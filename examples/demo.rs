@@ -262,6 +262,19 @@ impl Mesh {
     }
 }
 
+fn analyze_vertex_cache(indices: &[u32], vertex_count: usize, cache_size: u32, warp_size: u32, prim_group_size: u32) -> meshopt::ffi::meshopt_VertexCacheStatistics {
+    unsafe {
+        meshopt::ffi::meshopt_analyzeVertexCache(
+            indices.as_ptr() as *mut ::std::os::raw::c_uint,
+            indices.len(),
+            vertex_count,
+            cache_size,
+            warp_size,
+            prim_group_size,
+        )
+    }
+}
+
 fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u32>) {
     let mut remap: Vec<u32> = Vec::new();
     remap.resize(index_count, 0u32);
@@ -362,5 +375,8 @@ fn process_coverage() {
 fn main() {
     let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
 
+    let vcs = analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+
+    println!("{:?}: ACMR {}", "pirate.obj", vcs.acmr);
     process_coverage();
 }

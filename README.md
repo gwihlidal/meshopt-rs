@@ -140,9 +140,9 @@ at your option.
 
 ## Credits and Special Thanks
 
-- Arseny Kapoulkine (Author of C/C++ library)
-- Daniel Collin (Code review)
-- Jake Shadle (Code review)
+- [Arseny Kapoulkine](https://github.com/zeux) (Author of C/C++ library)
+- [Daniel Collin](https://github.com/emoon) (Code review)
+- [Jake Shadle](https://github.com/Jake-Shadle) (Code review)
 
 ## Contribution
 

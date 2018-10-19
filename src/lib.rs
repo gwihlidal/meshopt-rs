@@ -149,7 +149,7 @@ pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: 
 }
 
 pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]) -> usize {
-    let next_vertex = unsafe {
+    unsafe {
         ffi::meshopt_optimizeVertexFetch(
             vertices.as_mut_ptr() as *mut ::std::os::raw::c_void,
             indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
@@ -158,8 +158,7 @@ pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]
             vertices.len(),
             mem::size_of::<T>(),
         )
-    };
-    next_vertex
+    }
 }
 
 /// Vertex fetch cache optimizer
@@ -427,7 +426,7 @@ pub fn simplify<T: DecodePosition>(
 pub fn convert_indices_32_to_16(indices: &[u32]) -> Vec<u16> {
     let mut result: Vec<u16> = Vec::with_capacity(indices.len());
     for index in indices {
-        assert!(index <= &65536);
+        assert!(*index <= 65536);
         result.push(*index as u16);
     }
     result
@@ -436,7 +435,7 @@ pub fn convert_indices_32_to_16(indices: &[u32]) -> Vec<u16> {
 pub fn convert_indices_16_to_32(indices: &[u16]) -> Vec<u32> {
     let mut result: Vec<u32> = Vec::with_capacity(indices.len());
     for index in indices {
-        result.push(*index as u32);
+        result.push(u32::from(*index));
     }
     result
 }
@@ -481,7 +480,7 @@ pub fn quantize_half(v: f32) -> u16 {
     let u = FloatUInt { fl: v };
     let ui = unsafe { u.ui };
     let s = ((ui >> 16) & 0x8000) as i32;
-    let em = (ui & 0x7fffffff) as i32;
+    let em = (ui & 0x7fff_ffff) as i32;
 
     // bias exponent and round to nearest; 112 is relative exponent bias (127-15)
     let mut h = (em - (112 << 23) + (1 << 12)) >> 13;
@@ -508,11 +507,11 @@ pub fn quantize_float(v: f32, n: i32) -> f32 {
     let mask = ((1 << (23 - n)) - 1) as i32;
     let round = ((1 << (23 - n)) >> 1) as i32;
 
-    let e = (ui & 0x7f800000) as i32;
+    let e = (ui & 0x7f80_0000) as i32;
     let rui: u32 = ((ui as i32 + round) & !mask) as u32;
 
     // round all numbers except inf/nan; this is important to make sure nan doesn't overflow into -0
-    ui = if e == 0x7f800000 { ui } else { rui };
+    ui = if e == 0x7f80_0000 { ui } else { rui };
 
     // flush denormals to zero
     ui = if e == 0 { 0 } else { ui };

@@ -600,7 +600,7 @@ fn process(path: Option<PathBuf>, export: bool) {
                 mesh.save_obj(Path::new("examples/plane.obj")).unwrap();
             }
             mesh
-        },
+        }
     };
 
     optimize_mesh(&mesh, "Original", opt_none);
@@ -622,10 +622,10 @@ fn process(path: Option<PathBuf>, export: bool) {
                 let stem = path.file_stem().unwrap().to_str().unwrap();
                 let new_path = format!("examples/{}_opt.obj", stem);
                 copy.save_obj(Path::new(&new_path)).unwrap();
-            },
+            }
             None => {
                 copy.save_obj(Path::new("examples/plane_opt.obj")).unwrap();
-            },
+            }
         }
     }
 

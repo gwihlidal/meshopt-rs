@@ -500,7 +500,7 @@ fn simplify(mesh: &Mesh) {
         vfs_0.overfetch,
         vfs_n.overfetch,
         encoded_vertices.len() as f64 / vertices.len() as f64 * 8f64,
-        encoded_indices.len() as f64 / indices.len() as f64 / 3f64 * 8f64
+        encoded_indices.len() as f64 / (indices.len() as f64 / 3f64) * 8f64
     );
 }
 

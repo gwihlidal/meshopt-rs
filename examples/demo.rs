@@ -5,11 +5,10 @@ extern crate rand;
 extern crate tobj;
 
 use rand::{thread_rng, Rng};
+use std::fs::File;
+use std::io::prelude::*;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::io::prelude::*;
-use std::io::BufWriter;
-use std::fs::File;
 
 use meshopt::packing::*;
 
@@ -131,7 +130,8 @@ impl Mesh {
             merged_vertices.append(&mut vertices);
         }
 
-        let (total_vertices, vertex_remap) = meshopt::generate_vertex_remap(total_indices, &merged_vertices);
+        let (total_vertices, vertex_remap) =
+            meshopt::generate_vertex_remap(total_indices, &merged_vertices);
 
         let mut mesh = Self::default();
 
@@ -166,20 +166,37 @@ impl Mesh {
         mesh
     }
 
+    #[allow(dead_code)]
     fn save_obj(&self, path: &Path) -> std::io::Result<()> {
         let mut buffer = File::create(path)?;
 
         for i in 0..self.vertices.len() {
-            write!(buffer, "v {} {} {}\n", self.vertices[i].p[0], self.vertices[i].p[1], self.vertices[i].p[2])?;
-            write!(buffer, "vn {} {} {}\n", self.vertices[i].n[0], self.vertices[i].n[1], self.vertices[i].n[2])?;
-            write!(buffer, "vt {} {} {}\n", self.vertices[i].t[0], self.vertices[i].t[1], 0f32)?;
+            write!(
+                buffer,
+                "v {} {} {}\n",
+                self.vertices[i].p[0], self.vertices[i].p[1], self.vertices[i].p[2]
+            )?;
+            write!(
+                buffer,
+                "vn {} {} {}\n",
+                self.vertices[i].n[0], self.vertices[i].n[1], self.vertices[i].n[2]
+            )?;
+            write!(
+                buffer,
+                "vt {} {} {}\n",
+                self.vertices[i].t[0], self.vertices[i].t[1], 0f32
+            )?;
         }
 
         for i in (0..self.indices.len()).step_by(3) {
             let i0 = self.indices[i + 0] + 1;
             let i1 = self.indices[i + 1] + 1;
             let i2 = self.indices[i + 2] + 1;
-            write!(buffer, "f {}/{}/{} {}/{}/{} {}/{}/{}\n", i0, i0, i0, i1, i1, i1, i2, i2, i2);
+            write!(
+                buffer,
+                "f {}/{}/{} {}/{}/{} {}/{}/{}\n",
+                i0, i0, i0, i1, i1, i1, i2, i2, i2
+            );
         }
 
         Ok(())
@@ -339,8 +356,7 @@ fn opt_complete(mesh: &mut Mesh) {
     meshopt::optimize_overdraw_in_place(&mut mesh.indices, &mesh.vertices, threshold);
 
     // vertex fetch optimization should go last as it depends on the final index order
-    let final_size =
-        meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
+    let final_size = meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
     mesh.vertices.resize(final_size, Default::default());
 }
 
@@ -352,7 +368,8 @@ fn stripify(mesh: &Mesh) {
     assert!(copy.is_valid());
     assert_eq!(mesh, &copy);
 
-    let vcs = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcs =
+        meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
     let vcs_nv = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 32, 32, 32);
     let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
@@ -365,7 +382,7 @@ fn stripify(mesh: &Mesh) {
            vcs_intel.atvr,
            strip.len() as i32,
            strip.len() as f64 / mesh.indices.len() as f64 * 100f64);
- }
+}
 
 fn simplify(mesh: &Mesh) {
     println!("simplify: unimplemented");
@@ -533,11 +550,13 @@ fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) 
     assert!(packed == decoded);
 
     let compressed = compress(&encoded);
-    
-    println!("VtxCodec{:1}: {:.1} bits/vertex (post-deflate {:.1} bits/vertex);",
+
+    println!(
+        "VtxCodec{:1}: {:.1} bits/vertex (post-deflate {:.1} bits/vertex);",
         name,
         (encoded.len() * 8) as f64 / (mesh.vertices.len()) as f64,
-        (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64);
+        (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64
+    );
 }
 
 fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
@@ -577,12 +596,8 @@ fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
 
 fn process(path: Option<PathBuf>) {
     let mesh = match path {
-        Some(path) => {
-            Mesh::load_obj(&path)
-        },
-        None => {
-            Mesh::create_plane(200)
-        }
+        Some(path) => Mesh::load_obj(&path),
+        None => Mesh::create_plane(200),
     };
 
     optimize_mesh(&mesh, "Original", opt_none);
@@ -611,6 +626,6 @@ fn process(path: Option<PathBuf>) {
 }
 
 fn main() {
-    //process(None);
+    process(None);
     process(Some(Path::new("examples/pirate.obj").to_path_buf()));
 }

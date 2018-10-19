@@ -1,12 +1,9 @@
 extern crate meshopt;
-
-pub fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
+use meshopt::*;
 
 #[test]
 fn encode_index() {
-    assert_eq!(add(1, 2), 3);
+    assert!(true);
     /*
     // note: 4 6 5 triangle here is a combo-breaker:
     // we encode it without rotating, a=next, c=next - this means we do *not* bump next to 6
@@ -72,37 +69,35 @@ fn encode_index() {
 
 #[test]
 fn encode_vertex() {
-    use meshopt::packing::*;
+    assert!(true);
 
-    assert_eq!(add(1, 2), 3);
+    let mut vertices: Vec<packing::PackedVertexOct> = Vec::with_capacity(4);
 
-    let mut vertices: Vec<PackedVertexOct> = Vec::with_capacity(4);
-
-    vertices.push(PackedVertexOct {
+    vertices.push(packing::PackedVertexOct {
         p: [0, 0, 0],
         n: [0, 0],
         t: [0, 0],
     });
 
-    vertices.push(PackedVertexOct {
+    vertices.push(packing::PackedVertexOct {
         p: [300, 0, 0],
         n: [0, 0],
         t: [500, 0],
     });
 
-    vertices.push(PackedVertexOct {
+    vertices.push(packing::PackedVertexOct {
         p: [0, 300, 0],
         n: [0, 0],
         t: [0, 500],
     });
 
-    vertices.push(PackedVertexOct {
+    vertices.push(packing::PackedVertexOct {
         p: [300, 300, 0],
         n: [0, 0],
         t: [500, 500],
     });
 
-    let _encoded = meshopt::encode_vertex_buffer(&vertices);
+    let _encoded = encode_vertex_buffer(&vertices);
 
     /*
     // check that encode is memory-safe; note that we reallocate the buffer for each try to make sure ASAN can verify buffer access

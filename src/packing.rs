@@ -1,4 +1,4 @@
-use super::{DecodePosition, quantize_half, quantize_snorm};
+use super::{quantize_half, quantize_snorm, DecodePosition};
 use float_cmp::ApproxEqUlps;
 
 pub trait FromVertex {

@@ -199,7 +199,7 @@ pub fn remap_index_buffer(indices: Option<&[u32]>, vertex_count: usize, remap: &
                     remap.as_ptr() as *const ::std::os::raw::c_uint,
                 );
             }
-        },
+        }
         None => {
             result.resize(vertex_count, 0u32);
             unsafe {
@@ -210,7 +210,7 @@ pub fn remap_index_buffer(indices: Option<&[u32]>, vertex_count: usize, remap: &
                     remap.as_ptr() as *const ::std::os::raw::c_uint,
                 );
             }
-        },
+        }
     }
 
     result
@@ -242,7 +242,11 @@ pub fn remap_vertex_buffer<T: Clone + Default>(vertices: &[T], remap: &[u32]) ->
 /// indices must contain index data that is the result of optimizeVertexCache (*not* the original mesh indices!)
 /// vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer
 /// threshold indicates how much the overdraw optimizer can degrade vertex cache efficiency (1.05 = up to 5%) to reduce overdraw more efficiently
-pub fn optimize_overdraw_in_place<T: DecodePosition>(indices: &mut [u32], vertices: &[T], threshold: f32) {
+pub fn optimize_overdraw_in_place<T: DecodePosition>(
+    indices: &mut [u32],
+    vertices: &[T],
+    threshold: f32,
+) {
     let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -318,7 +322,8 @@ pub fn decode_index_buffer<T: Clone + Default>(encoded: &[u8], index_count: usiz
 }
 
 pub fn encode_vertex_buffer<T>(vertices: &[T]) -> Vec<u8> {
-    let bounds = unsafe { ffi::meshopt_encodeVertexBufferBound(vertices.len(), mem::size_of::<T>()) };
+    let bounds =
+        unsafe { ffi::meshopt_encodeVertexBufferBound(vertices.len(), mem::size_of::<T>()) };
     let mut result: Vec<u8> = Vec::new();
     result.resize(bounds, 0u8);
     let size = unsafe {

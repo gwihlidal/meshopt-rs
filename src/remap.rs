@@ -1,20 +1,33 @@
 use ffi;
 use std::mem;
 
-pub fn generate_vertex_remap<T>(index_count: usize, vertices: &[T]) -> (usize, Vec<u32>) {
+pub fn generate_vertex_remap<T>(vertices: &[T], indices: Option<&[u32]>) -> (usize, Vec<u32>) {
     let mut remap: Vec<u32> = Vec::new();
-    remap.resize(index_count, 0u32);
+    remap.resize(vertices.len(), 0u32);
     let vertex_count = unsafe {
-        ffi::meshopt_generateVertexRemap(
-            remap.as_ptr() as *mut ::std::os::raw::c_uint,
-            ::std::ptr::null(),
-            index_count,
-            vertices.as_ptr() as *const ::std::os::raw::c_void,
-            index_count,
-            mem::size_of::<T>(),
-        )
+        match indices {
+            Some(indices) => {
+                ffi::meshopt_generateVertexRemap(
+                    remap.as_ptr() as *mut ::std::os::raw::c_uint,
+                    indices.as_ptr() as *const ::std::os::raw::c_uint,
+                    indices.len(),
+                    vertices.as_ptr() as *const ::std::os::raw::c_void,
+                    vertices.len(),
+                    mem::size_of::<T>(),
+                )
+            }
+            None => {
+                ffi::meshopt_generateVertexRemap(
+                    remap.as_ptr() as *mut ::std::os::raw::c_uint,
+                    ::std::ptr::null(),
+                    vertices.len(),
+                    vertices.as_ptr() as *const ::std::os::raw::c_void,
+                    vertices.len(),
+                    mem::size_of::<T>(),
+                )
+            }
+        }
     };
-
     (vertex_count, remap)
 }
 

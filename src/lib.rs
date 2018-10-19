@@ -396,7 +396,12 @@ pub fn unstripify(indices: &[u32]) -> Vec<u32> {
     result
 }
 
-pub fn simplify<T: DecodePosition>(indices: &[u32], vertices: &[T], target_count: usize, target_error: f32) -> Vec<u32> {
+pub fn simplify<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+    target_count: usize,
+    target_error: f32,
+) -> Vec<u32> {
     let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -410,7 +415,7 @@ pub fn simplify<T: DecodePosition>(indices: &[u32], vertices: &[T], target_count
             indices.len(),
             positions.as_ptr() as *const f32,
             positions.len(),
-            mem::size_of::<T>() * 3,
+            mem::size_of::<f32>() * 3,
             target_count,
             target_error,
         )

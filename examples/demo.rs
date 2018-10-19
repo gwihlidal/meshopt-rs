@@ -8,7 +8,6 @@ use rand::{thread_rng, Rng};
 use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
-use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 use meshopt::packing::*;
@@ -376,17 +375,13 @@ fn stripify(mesh: &Mesh) {
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
     println!("Stripify : ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%)",
-           vcs.acmr,
-           vcs.atvr,
-           vcs_nv.atvr,
-           vcs_amd.atvr,
-           vcs_intel.atvr,
-           strip.len() as i32,
-           strip.len() as f64 / mesh.indices.len() as f64 * 100f64);
-}
-
-fn simplify_lod(n: &mut Vec<u32>, n_minus_one: &[u32]) {
-
+        vcs.acmr,
+        vcs.atvr,
+        vcs_nv.atvr,
+        vcs_amd.atvr,
+        vcs_intel.atvr,
+        strip.len() as i32,
+        strip.len() as f64 / mesh.indices.len() as f64 * 100f64);
 }
 
 fn simplify(mesh: &Mesh) {
@@ -396,36 +391,31 @@ fn simplify(mesh: &Mesh) {
     // note that each LOD uses the same (shared) vertex buffer
     let mut lods: Vec<Vec<u32>> = Vec::with_capacity(lod_count);
     lods.push(mesh.indices.clone());
-
     for i in 1..lod_count {
         let threshold = 0.7f32.powf(i as f32);
         let target_index_count = (mesh.indices.len() as f32 * threshold) as usize / 3 * 3;
         let target_error = 1e-3f32;
-        
-        let mut lod: Vec<u32> = Vec::new();
+        let mut lod: Vec<u32>;
         {
             // we can simplify all the way from base level or from the last result
             // simplifying from the base level sometimes produces better results, but simplifying from last level is faster
             let src = &lods[lods.len() - 1];
-            //lod = meshopt::simplify(&src, &mesh.vertices, ::std::cmp::min
-            lod.resize(src.len(), 0u32);
-
-            //lod.resize(meshopt_simplify(&lod[0], &source[0], source.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), std::min(source.size(), target_index_count), target_error));
+            lod = meshopt::simplify(
+                &src,
+                &mesh.vertices,
+                ::std::cmp::min(src.len(), target_index_count),
+                target_error,
+            );
         }
         lods.push(lod);
     }
 
     // optimize each individual LOD for vertex cache & overdraw
-    /*
-    for (size_t i = 0; i < lod_count; ++i)
-    {
-        std::vector<unsigned int>& lod = lods[i];
-    
-        meshopt_optimizeVertexCache(&lod[0], &lod[0], lod.size(), mesh.vertices.size());
-        meshopt_optimizeOverdraw(&lod[0], &lod[0], lod.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), 1.0f);
+    for mut lod in &mut lods {
+        meshopt::optimize_vertex_cache_in_place(&mut lod, mesh.vertices.len());
+        meshopt::optimize_overdraw_in_place(&mut lod, &mesh.vertices, 1f32);
     }
-    */
-    
+
     // concatenate all LODs into one IB
     // note: the order of concatenation is important - since we optimize the entire IB for vertex fetch,
     // putting coarse LODs first makes sure that the vertex range referenced by them is as small as possible
@@ -433,80 +423,85 @@ fn simplify(mesh: &Mesh) {
     // cost for coarse LODs
     // this order also produces much better vertex fetch cache coherency for coarse LODs (since they're essentially optimized first)
     // somewhat surprisingly, the vertex fetch cache coherency for fine LODs doesn't seem to suffer that much.
-    /*size_t lod_index_offsets[lod_count] = {};
-    size_t lod_index_counts[lod_count] = {};
-    size_t total_index_count = 0;
-    
-    for (int i = lod_count - 1; i >= 0; --i)
-    {
-        lod_index_offsets[i] = total_index_count;
-        lod_index_counts[i] = lods[i].size();
-    
-        total_index_count += lods[i].size();
-    }*/
-    
-    /*
-    std::vector<unsigned int> indices(total_index_count);
-    
-    for (size_t i = 0; i < lod_count; ++i)
-    {
-        memcpy(&indices[lod_index_offsets[i]], &lods[i][0], lods[i].size() * sizeof(lods[i][0]));
+    let mut lod_offsets: Vec<usize> = Vec::new();
+    lod_offsets.resize(lod_count, 0);
+
+    let mut lod_counts: Vec<usize> = Vec::new();
+    lod_counts.resize(lod_count, 0);
+
+    let mut total_index_count: usize = 0;
+    for i in (0..lod_count).rev() {
+        lod_offsets[i] = total_index_count;
+        lod_counts[i] = lods[i].len();
+        total_index_count += lod_counts[i];
     }
-    */
-    
-    /*
-    std::vector<Vertex> vertices = mesh.vertices;
-    
+
+    let mut indices: Vec<u32> = Vec::new();
+    indices.resize(total_index_count, 0u32);
+    for i in 0..lod_count {
+        let lod = &lods[i];
+        let offset = lod_offsets[i];
+        indices.splice(offset..(offset + lod.len()), lod.iter().cloned());
+    }
+
     // vertex fetch optimization should go last as it depends on the final index order
     // note that the order of LODs above affects vertex fetch results
-    meshopt_optimizeVertexFetch(&vertices[0], &indices[0], indices.size(), &vertices[0], vertices.size(), sizeof(Vertex));
-    
-    printf("%-9s: %d triangles => %d LOD levels down to %d triangles in %.2f msec, optimized in %.2f msec\n",
-           "Simplify",
-           int(lod_index_counts[0]) / 3, int(lod_count), int(lod_index_counts[lod_count - 1]) / 3,
-           (middle - start) * 1000, (end - middle) * 1000);
-    */
-    
+    let mut vertices = mesh.vertices.clone();
+    let next_vertex = meshopt::optimize_vertex_fetch_in_place(&mut indices, &mut vertices);
+    vertices.resize(next_vertex, Default::default());
+
+    println!(
+        "{:9}: {} triangles => {} LOD levels down to {} triangles",
+        "Simplify",
+        lod_counts[0] / 3,
+        lod_count,
+        lod_counts[lod_count - 1] / 3
+    );
+
     // for using LOD data at runtime, in addition to vertices and indices you have to save lod_index_offsets/lod_index_counts.
-    /*
-    {
+    let offset_n = lod_count - 1;
 
-        let vcs =
-        meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcs_0 = meshopt::analyze_vertex_cache(
+        &indices[lod_offsets[0]..(lod_offsets[0] + lod_counts[0])],
+        vertices.len(),
+        CACHE_SIZE as u32,
+        0,
+        0,
+    );
 
-    let vfs =
-        meshopt::analyze_vertex_fetch(&copy.indices, copy.vertices.len(), mem::size_of::<Vertex>());
+    let vfs_0 = meshopt::analyze_vertex_fetch(
+        &indices[lod_offsets[0]..(lod_offsets[0] + lod_counts[0])],
+        vertices.len(),
+        mem::size_of::<Vertex>(),
+    );
 
-    let vcs_nv = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 32, 32, 32);
+    let vcs_n = meshopt::analyze_vertex_cache(
+        &indices[lod_offsets[offset_n]..(lod_offsets[offset_n] + lod_counts[offset_n])],
+        vertices.len(),
+        CACHE_SIZE as u32,
+        0,
+        0,
+    );
 
-    let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
+    let vfs_n = meshopt::analyze_vertex_fetch(
+        &indices[lod_offsets[offset_n]..(lod_offsets[offset_n] + lod_counts[offset_n])],
+        vertices.len(),
+        mem::size_of::<Vertex>(),
+    );
 
-    let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
+    let packed = pack_vertices::<PackedVertexOct>(&vertices);
+    let encoded_vertices = meshopt::encode_vertex_buffer(&packed);
+    let encoded_indices = meshopt::encode_index_buffer(&indices, vertices.len());
 
-
-        meshopt_VertexCacheStatistics vcs0 = meshopt_analyzeVertexCache(&indices[lod_index_offsets[0]], lod_index_counts[0], vertices.size(), kCacheSize, 0, 0);
-        meshopt_VertexFetchStatistics vfs0 = meshopt_analyzeVertexFetch(&indices[lod_index_offsets[0]], lod_index_counts[0], vertices.size(), sizeof(Vertex));
-        meshopt_VertexCacheStatistics vcsN = meshopt_analyzeVertexCache(&indices[lod_index_offsets[lod_count - 1]], lod_index_counts[lod_count - 1], vertices.size(), kCacheSize, 0, 0);
-        meshopt_VertexFetchStatistics vfsN = meshopt_analyzeVertexFetch(&indices[lod_index_offsets[lod_count - 1]], lod_index_counts[lod_count - 1], vertices.size(), sizeof(Vertex));
-    
-        typedef PackedVertexOct PV;
-    
-        std::vector<PV> pv(vertices.size());
-        packMesh(pv, vertices);
-    
-        std::vector<unsigned char> vbuf(meshopt_encodeVertexBufferBound(vertices.size(), sizeof(PV)));
-        vbuf.resize(meshopt_encodeVertexBuffer(&vbuf[0], vbuf.size(), &pv[0], vertices.size(), sizeof(PV)));
-    
-        std::vector<unsigned char> ibuf(meshopt_encodeIndexBufferBound(indices.size(), vertices.size()));
-        ibuf.resize(meshopt_encodeIndexBuffer(&ibuf[0], ibuf.size(), &indices[0], indices.size()));
-    
-        printf("%-9s  ACMR %f...%f Overfetch %f..%f Codec VB %.1f bits/vertex IB %.1f bits/triangle\n",
-               "",
-               vcs0.acmr, vcsN.acmr, vfs0.overfetch, vfsN.overfetch,
-               double(vbuf.size()) / double(vertices.size()) * 8,
-               double(ibuf.size()) / double(indices.size() / 3) * 8);
-    }
-    */
+    println!("{:9}  ACMR {:.6}...{:.6} Overfetch {:.6}..{:.6} Codec VB {:.1} bits/vertex IB {:.1} bits/triangle",
+        "",
+        vcs_0.acmr,
+        vcs_n.acmr,
+        vfs_0.overfetch,
+        vfs_n.overfetch,
+        encoded_vertices.len() as f64 / vertices.len() as f64 * 8f64,
+        encoded_indices.len() as f64 / indices.len() as f64 / 3f64 * 8f64
+    );
 }
 
 fn encode_index(mesh: &Mesh) {
@@ -575,7 +570,7 @@ fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
 
 fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
     let input_size = data.len() * mem::size_of::<T>();
-    let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as u32);
+    let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as u64);
     let mut compress_buffer: Vec<u8> = Vec::new();
     compress_buffer.resize(compress_bound as usize, 0u8);
     let flags = miniz_oxide_c_api::tdefl_create_comp_flags_from_zip_params(

@@ -1,5 +1,9 @@
-use super::{quantize_half, quantize_snorm, DecodePosition};
 use float_cmp::ApproxEqUlps;
+use {quantize_half, quantize_snorm};
+
+pub trait DecodePosition {
+    fn decode_position(&self) -> [f32; 3];
+}
 
 pub trait FromVertex {
     fn from_vertex(&mut self, vertex: &Vertex);

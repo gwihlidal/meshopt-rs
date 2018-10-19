@@ -10,7 +10,8 @@ use std::io::prelude::*;
 use std::mem;
 use std::path::{Path, PathBuf};
 
-use meshopt::packing::*;
+#[allow(unused_imports)]
+use meshopt::*;
 
 const CACHE_SIZE: usize = 16;
 

@@ -5,8 +5,10 @@ authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for zeux/meshoptimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"
 repository = "https://github.com/gwihlidal/meshopt-rs"
+documentation = "https://docs.rs/meshopt"
 readme = "README.md"
 keywords = ["rust", "mesh", "optimize", "cache", "3d", "rendering"]
+categories = ["rendering", "rendering::engine", ]
 license = "MIT"
 build = "build.rs"
 include = [
@@ -28,6 +30,7 @@ include = [
 ]
 
 [badges]
+travis-ci = { repository = "gwihlidal/meshopt-rs" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
@@ -41,3 +44,8 @@ tobj = "0.1.6"
 miniz_oxide_c_api = "0.2.0"
 rand = "0.5.5"
 libc = "0.2.43"
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1

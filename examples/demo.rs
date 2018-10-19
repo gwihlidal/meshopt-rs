@@ -591,10 +591,16 @@ fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
     compress_buffer
 }
 
-fn process(path: Option<PathBuf>) {
+fn process(path: Option<PathBuf>, export: bool) {
     let mesh = match path {
-        Some(path) => Mesh::load_obj(&path),
-        None => Mesh::create_plane(200),
+        Some(ref path) => Mesh::load_obj(&path),
+        None => {
+            let mesh = Mesh::create_plane(200);
+            if export {
+                mesh.save_obj(Path::new("examples/plane.obj")).unwrap();
+            }
+            mesh
+        },
     };
 
     optimize_mesh(&mesh, "Original", opt_none);
@@ -610,7 +616,18 @@ fn process(path: Option<PathBuf>) {
     meshopt::optimize_vertex_cache_in_place(&mut copy.indices, copy.vertices.len());
     meshopt::optimize_vertex_fetch_in_place(&mut copy.indices, &mut copy.vertices);
 
-    //copy.save_obj(Path::new("H:/Test.obj"));
+    if export {
+        match path {
+            Some(ref path) => {
+                let stem = path.file_stem().unwrap().to_str().unwrap();
+                let new_path = format!("examples/{}_opt.obj", stem);
+                copy.save_obj(Path::new(&new_path)).unwrap();
+            },
+            None => {
+                copy.save_obj(Path::new("examples/plane_opt.obj")).unwrap();
+            },
+        }
+    }
 
     stripify(&copy);
 
@@ -623,6 +640,7 @@ fn process(path: Option<PathBuf>) {
 }
 
 fn main() {
-    process(None);
-    process(Some(Path::new("examples/pirate.obj").to_path_buf()));
+    let export = false;
+    process(None, export);
+    process(Some(Path::new("examples/pirate.obj").to_path_buf()), export);
 }

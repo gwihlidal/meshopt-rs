@@ -9,11 +9,16 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
 use std::path::{Path, PathBuf};
+use std::time::{Instant, Duration};
 
 #[allow(unused_imports)]
 use meshopt::*;
 
 const CACHE_SIZE: usize = 16;
+
+fn elapsed_to_ms(elapsed: Duration) -> f32 {
+    elapsed.subsec_nanos() as f32 / 1_000_000.0 + elapsed.as_secs() as f32 * 1_000.0
+}
 
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
 #[repr(C)]
@@ -271,7 +276,9 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
     assert_eq!(mesh, &copy);
     assert!(copy.is_valid());
 
+    let optimize_start = Instant::now();
     opt(&mut copy);
+    let optimize_elapsed = optimize_start.elapsed();
 
     let vcs =
         meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
@@ -288,7 +295,7 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
     println!(
-        "{:9}: ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}) Overfetch {:.6} Overdraw {:.6}",
+        "{:9}: ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}) Overfetch {:.6} Overdraw {:.6} in {:.2} msec",
         name,
         vcs.acmr,
         vcs.atvr,
@@ -296,7 +303,8 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
         vcs_amd.atvr,
         vcs_intel.atvr,
         vfs.overfetch,
-        os.overdraw
+        os.overdraw,
+        elapsed_to_ms(optimize_elapsed),
     );
 }
 
@@ -362,7 +370,10 @@ fn opt_complete(mesh: &mut Mesh) {
 }
 
 fn stripify(mesh: &Mesh) {
+    let process_start = Instant::now();
     let strip = meshopt::stripify(&mesh.indices, mesh.vertices.len());
+    let process_elapsed = process_start.elapsed();
+
     let mut copy = mesh.clone();
     copy.indices = meshopt::unstripify(&strip);
 
@@ -375,18 +386,22 @@ fn stripify(mesh: &Mesh) {
     let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
-    println!("Stripify : ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%)",
+    println!("Stripify : ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%) in {:.2} msec",
         vcs.acmr,
         vcs.atvr,
         vcs_nv.atvr,
         vcs_amd.atvr,
         vcs_intel.atvr,
         strip.len() as i32,
-        strip.len() as f64 / mesh.indices.len() as f64 * 100f64);
+        strip.len() as f64 / mesh.indices.len() as f64 * 100f64,
+        elapsed_to_ms(process_elapsed),
+    );
 }
 
 fn simplify(mesh: &Mesh) {
     let lod_count = 5;
+
+    let process_start = Instant::now();
 
     // generate 4 LOD levels (1-4), with each subsequent LOD using 70% triangles
     // note that each LOD uses the same (shared) vertex buffer
@@ -410,6 +425,9 @@ fn simplify(mesh: &Mesh) {
         }
         lods.push(lod);
     }
+
+    let process_elapsed = process_start.elapsed();
+    let optimize_start = Instant::now();
 
     // optimize each individual LOD for vertex cache & overdraw
     for mut lod in &mut lods {
@@ -451,12 +469,16 @@ fn simplify(mesh: &Mesh) {
     let next_vertex = meshopt::optimize_vertex_fetch_in_place(&mut indices, &mut vertices);
     vertices.resize(next_vertex, Default::default());
 
+    let optimize_elapsed = optimize_start.elapsed();
+
     println!(
-        "{:9}: {} triangles => {} LOD levels down to {} triangles",
+        "{:9}: {} triangles => {} LOD levels down to {} triangles in {:.2} msec, optimized in {:.2} msec",
         "Simplify",
         lod_counts[0] / 3,
         lod_count,
-        lod_counts[lod_count - 1] / 3
+        lod_counts[lod_count - 1] / 3,
+        elapsed_to_ms(process_elapsed),
+        elapsed_to_ms(optimize_elapsed),
     );
 
     // for using LOD data at runtime, in addition to vertices and indices you have to save lod_index_offsets/lod_index_counts.
@@ -506,8 +528,14 @@ fn simplify(mesh: &Mesh) {
 }
 
 fn encode_index(mesh: &Mesh) {
+    let encode_start = Instant::now();
     let encoded = meshopt::encode_index_buffer(&mesh.indices, mesh.vertices.len());
+    let encode_elapsed = encode_start.elapsed();
+    
+    let decode_start = Instant::now();
     let decoded = meshopt::decode_index_buffer::<u32>(&encoded, mesh.indices.len());
+    let decode_elapsed = decode_start.elapsed();
+
     let compressed = compress(&encoded);
     for i in (0..mesh.indices.len()).step_by(3) {
         assert!(
@@ -535,25 +563,38 @@ fn encode_index(mesh: &Mesh) {
     }
 
     println!(
-        "IdxCodec : {:.1} bits/triangle (post-deflate {:.1} bits/triangle);",
+        "IdxCodec : {:.1} bits/triangle (post-deflate {:.1} bits/triangle); encode {:.2} msec, decode {:.2} msec ({:.2} GB/s)",
         (encoded.len() * 8) as f64 / (mesh.indices.len() / 3) as f64,
-        (compressed.len() * 8) as f64 / (mesh.indices.len() / 3) as f64
+        (compressed.len() * 8) as f64 / (mesh.indices.len() / 3) as f64,
+        elapsed_to_ms(encode_elapsed),
+        elapsed_to_ms(decode_elapsed),
+        ((decoded.len() * 4) as f64 / (1 << 30) as f64) / (elapsed_to_ms(decode_elapsed) as f64 / 1000.0),
     );
 }
 
 fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) {
     let packed = pack_vertices::<T>(&mesh.vertices);
+    
+    let encode_start = Instant::now();
     let encoded = meshopt::encode_vertex_buffer(&packed);
+    let encode_elapsed = encode_start.elapsed();
+    
+    let decode_start = Instant::now();
     let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
+    let decode_elapsed = decode_start.elapsed();
+
     assert!(packed == decoded);
 
     let compressed = compress(&encoded);
 
     println!(
-        "VtxCodec{:1}: {:.1} bits/vertex (post-deflate {:.1} bits/vertex);",
+        "VtxCodec{:1}: {:.1} bits/vertex (post-deflate {:.1} bits/vertex); encode {:.2} msec, decode {:.2} msec ({:.2} GB/s)",
         name,
         (encoded.len() * 8) as f64 / (mesh.vertices.len()) as f64,
-        (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64
+        (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64,
+        elapsed_to_ms(encode_elapsed),
+        elapsed_to_ms(decode_elapsed),
+        ((decoded.len() * 4) as f64 / (1 << 30) as f64) / (elapsed_to_ms(decode_elapsed) as f64 / 1000.0),
     );
 }
 

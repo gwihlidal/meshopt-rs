@@ -8,6 +8,7 @@ use rand::{thread_rng, Rng};
 use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 use meshopt::packing::*;
@@ -384,38 +385,38 @@ fn stripify(mesh: &Mesh) {
            strip.len() as f64 / mesh.indices.len() as f64 * 100f64);
 }
 
+fn simplify_lod(n: &mut Vec<u32>, n_minus_one: &[u32]) {
+
+}
+
 fn simplify(mesh: &Mesh) {
-    println!("simplify: unimplemented");
-    /*
-    static const size_t lod_count = 5;
-    
-    double start = timestamp();
-    
+    let lod_count = 5;
+
     // generate 4 LOD levels (1-4), with each subsequent LOD using 70% triangles
     // note that each LOD uses the same (shared) vertex buffer
-    std::vector<unsigned int> lods[lod_count];
-    
-    lods[0] = mesh.indices;
-    
-    for (size_t i = 1; i < lod_count; ++i)
-    {
-        std::vector<unsigned int>& lod = lods[i];
-    
-        float threshold = powf(0.7f, float(i));
-        size_t target_index_count = size_t(mesh.indices.size() * threshold) / 3 * 3;
-        float target_error = 1e-3f;
-    
-        // we can simplify all the way from base level or from the last result
-        // simplifying from the base level sometimes produces better results, but simplifying from last level is faster
-        const std::vector<unsigned int>& source = lods[i - 1];
-    
-        lod.resize(source.size());
-        lod.resize(meshopt_simplify(&lod[0], &source[0], source.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), std::min(source.size(), target_index_count), target_error));
+    let mut lods: Vec<Vec<u32>> = Vec::with_capacity(lod_count);
+    lods.push(mesh.indices.clone());
+
+    for i in 1..lod_count {
+        let threshold = 0.7f32.powf(i as f32);
+        let target_index_count = (mesh.indices.len() as f32 * threshold) as usize / 3 * 3;
+        let target_error = 1e-3f32;
+        
+        let mut lod: Vec<u32> = Vec::new();
+        {
+            // we can simplify all the way from base level or from the last result
+            // simplifying from the base level sometimes produces better results, but simplifying from last level is faster
+            let src = &lods[lods.len() - 1];
+            //lod = meshopt::simplify(&src, &mesh.vertices, ::std::cmp::min
+            lod.resize(src.len(), 0u32);
+
+            //lod.resize(meshopt_simplify(&lod[0], &source[0], source.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), std::min(source.size(), target_index_count), target_error));
+        }
+        lods.push(lod);
     }
-    
-    double middle = timestamp();
-    
+
     // optimize each individual LOD for vertex cache & overdraw
+    /*
     for (size_t i = 0; i < lod_count; ++i)
     {
         std::vector<unsigned int>& lod = lods[i];
@@ -423,6 +424,7 @@ fn simplify(mesh: &Mesh) {
         meshopt_optimizeVertexCache(&lod[0], &lod[0], lod.size(), mesh.vertices.size());
         meshopt_optimizeOverdraw(&lod[0], &lod[0], lod.size(), &mesh.vertices[0].px, mesh.vertices.size(), sizeof(Vertex), 1.0f);
     }
+    */
     
     // concatenate all LODs into one IB
     // note: the order of concatenation is important - since we optimize the entire IB for vertex fetch,
@@ -431,7 +433,7 @@ fn simplify(mesh: &Mesh) {
     // cost for coarse LODs
     // this order also produces much better vertex fetch cache coherency for coarse LODs (since they're essentially optimized first)
     // somewhat surprisingly, the vertex fetch cache coherency for fine LODs doesn't seem to suffer that much.
-    size_t lod_index_offsets[lod_count] = {};
+    /*size_t lod_index_offsets[lod_count] = {};
     size_t lod_index_counts[lod_count] = {};
     size_t total_index_count = 0;
     
@@ -441,30 +443,32 @@ fn simplify(mesh: &Mesh) {
         lod_index_counts[i] = lods[i].size();
     
         total_index_count += lods[i].size();
-    }
+    }*/
     
+    /*
     std::vector<unsigned int> indices(total_index_count);
     
     for (size_t i = 0; i < lod_count; ++i)
     {
         memcpy(&indices[lod_index_offsets[i]], &lods[i][0], lods[i].size() * sizeof(lods[i][0]));
     }
+    */
     
+    /*
     std::vector<Vertex> vertices = mesh.vertices;
     
     // vertex fetch optimization should go last as it depends on the final index order
     // note that the order of LODs above affects vertex fetch results
     meshopt_optimizeVertexFetch(&vertices[0], &indices[0], indices.size(), &vertices[0], vertices.size(), sizeof(Vertex));
     
-    double end = timestamp();
-    
     printf("%-9s: %d triangles => %d LOD levels down to %d triangles in %.2f msec, optimized in %.2f msec\n",
            "Simplify",
            int(lod_index_counts[0]) / 3, int(lod_count), int(lod_index_counts[lod_count - 1]) / 3,
            (middle - start) * 1000, (end - middle) * 1000);
+    */
     
     // for using LOD data at runtime, in addition to vertices and indices you have to save lod_index_offsets/lod_index_counts.
-    
+    /*
     {
 
         let vcs =
@@ -478,8 +482,6 @@ fn simplify(mesh: &Mesh) {
     let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
 
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
-
-
 
 
         meshopt_VertexCacheStatistics vcs0 = meshopt_analyzeVertexCache(&indices[lod_index_offsets[0]], lod_index_counts[0], vertices.size(), kCacheSize, 0, 0);

@@ -396,6 +396,29 @@ pub fn unstripify(indices: &[u32]) -> Vec<u32> {
     result
 }
 
+pub fn simplify<T: DecodePosition>(indices: &[u32], vertices: &[T], target_count: usize, target_error: f32) -> Vec<u32> {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    let mut result: Vec<u32> = Vec::new();
+    result.resize(indices.len(), 0u32);
+    let index_count = unsafe {
+        ffi::meshopt_simplify(
+            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            positions.as_ptr() as *const f32,
+            positions.len(),
+            mem::size_of::<T>() * 3,
+            target_count,
+            target_error,
+        )
+    };
+    result.resize(index_count, 0u32);
+    result
+}
+
 pub fn convert_indices_32_to_16(indices: &[u32]) -> Vec<u16> {
     let mut result: Vec<u16> = Vec::with_capacity(indices.len());
     for index in indices {

@@ -1,6 +1,10 @@
+extern crate float_cmp;
+
 use std::mem;
 
 pub mod ffi;
+pub mod packing;
+pub mod utilities;
 
 pub type VertexCacheStatistics = ffi::meshopt_VertexCacheStatistics;
 pub type VertexFetchStatistics = ffi::meshopt_VertexFetchStatistics;

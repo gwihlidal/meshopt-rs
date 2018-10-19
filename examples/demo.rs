@@ -1,11 +1,9 @@
-extern crate float_cmp;
 extern crate libc;
 extern crate meshopt;
 extern crate miniz_oxide_c_api;
 extern crate rand;
 extern crate tobj;
 
-use float_cmp::ApproxEqUlps;
 use rand::{thread_rng, Rng};
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -13,112 +11,9 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::fs::File;
 
+use meshopt::packing::*;
+
 const CACHE_SIZE: usize = 16;
-
-fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    unsafe {
-        ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
-    }
-}
-
-trait FromVertex {
-    fn from_vertex(&mut self, vertex: &Vertex);
-}
-
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(C)]
-struct PackedVertex {
-    p: [u16; 4],
-    n: [u8; 4],
-    t: [u16; 2],
-}
-
-impl FromVertex for PackedVertex {
-    fn from_vertex(&mut self, vertex: &Vertex) {
-        self.p[0] = meshopt::quantize_half(vertex.p[0]) as u16;
-        self.p[1] = meshopt::quantize_half(vertex.p[1]) as u16;
-        self.p[2] = meshopt::quantize_half(vertex.p[2]) as u16;
-        self.p[3] = 0u16;
-
-        self.n[0] = meshopt::quantize_snorm(vertex.n[0], 8) as u8;
-        self.n[1] = meshopt::quantize_snorm(vertex.n[1], 8) as u8;
-        self.n[2] = meshopt::quantize_snorm(vertex.n[2], 8) as u8;
-        self.n[3] = 0u8;
-
-        self.t[0] = meshopt::quantize_half(vertex.t[0]) as u16;
-        self.t[1] = meshopt::quantize_half(vertex.t[1]) as u16;
-    }
-}
-
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(C)]
-struct PackedVertexOct {
-    p: [u16; 3],
-    n: [u8; 2], // octahedron encoded normal, aliases .pw
-    t: [u16; 2],
-}
-
-impl FromVertex for PackedVertexOct {
-    fn from_vertex(&mut self, vertex: &Vertex) {
-        self.p[0] = meshopt::quantize_half(vertex.p[0]) as u16;
-        self.p[1] = meshopt::quantize_half(vertex.p[1]) as u16;
-        self.p[2] = meshopt::quantize_half(vertex.p[2]) as u16;
-
-        let nsum = vertex.n[0].abs() + vertex.n[1].abs() + vertex.n[2].abs();
-        let nx = vertex.n[0] / nsum;
-        let ny = vertex.n[1] / nsum;
-        let nz = vertex.n[2];
-
-        let nu = if nz >= 0f32 {
-            nx
-        } else {
-            (1f32 - ny.abs()) * if nx >= 0f32 { 1f32 } else { -1f32 }
-        };
-
-        let nv = if nz >= 0f32 {
-            ny
-        } else {
-            (1f32 - nx.abs()) * if ny >= 0f32 { 1f32 } else { -1f32 }
-        };
-
-        self.n[0] = meshopt::quantize_snorm(nu, 8) as u8;
-        self.n[1] = meshopt::quantize_snorm(nv, 8) as u8;
-
-        self.t[0] = meshopt::quantize_half(vertex.t[0]) as u16;
-        self.t[1] = meshopt::quantize_half(vertex.t[1]) as u16;
-    }
-}
-
-#[derive(Default, Debug, Copy, Clone, PartialOrd)]
-#[repr(C)]
-struct Vertex {
-    p: [f32; 3],
-    n: [f32; 3],
-    t: [f32; 2],
-}
-
-impl PartialEq for Vertex {
-    fn eq(&self, other: &Vertex) -> bool {
-        self.p[0].approx_eq_ulps(&other.p[0], 2)
-            && self.p[1].approx_eq_ulps(&other.p[1], 2)
-            && self.p[2].approx_eq_ulps(&other.p[2], 2)
-            && self.n[0].approx_eq_ulps(&other.n[0], 2)
-            && self.n[1].approx_eq_ulps(&other.n[1], 2)
-            && self.n[2].approx_eq_ulps(&other.n[2], 2)
-            && self.t[0].approx_eq_ulps(&other.t[0], 2)
-            && self.t[1].approx_eq_ulps(&other.t[1], 2)
-    }
-}
-
-impl Eq for Vertex {}
-
-impl Vertex {}
-
-impl meshopt::DecodePosition for Vertex {
-    fn decode_position(&self) -> [f32; 3] {
-        self.p
-    }
-}
 
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
 #[repr(C)]
@@ -148,8 +43,8 @@ impl Triangle {
 
 impl Ord for Triangle {
     fn cmp(&self, other: &Triangle) -> ::std::cmp::Ordering {
-        let lhs = any_as_u8_slice(&self);
-        let rhs = any_as_u8_slice(&other);
+        let lhs = meshopt::utilities::any_as_u8_slice(&self);
+        let rhs = meshopt::utilities::any_as_u8_slice(&other);
         lhs.cmp(&rhs)
     }
 }
@@ -197,14 +92,9 @@ impl Mesh {
 
         let mut total_indices = 0;
 
-        for (i, m) in models.iter().enumerate() {
+        for (_, m) in models.iter().enumerate() {
             let mut vertices: Vec<Vertex> = Vec::new();
-
             let mesh = &m.mesh;
-            //println!("model[{}].name = \'{}\'", i, m.name);
-            //println!("Size of model[{}].indices: {}", i, mesh.indices.len());
-            //println!("model[{}].vertices: {}", i, mesh.positions.len() / 3);
-
             total_indices += mesh.indices.len();
 
             for i in 0..mesh.indices.len() {
@@ -355,181 +245,6 @@ impl Mesh {
 
         result
     }
-}
-
-fn pack_vertices<T>(input: &[T]) -> Vec<u8> {
-    let conservative_size =
-        unsafe { meshopt::ffi::meshopt_encodeVertexBufferBound(input.len(), mem::size_of::<T>()) };
-
-    let mut encoded_data: Vec<u8> = Vec::new();
-    encoded_data.resize(conservative_size, 0u8);
-
-    let encoded_size = unsafe {
-        meshopt::ffi::meshopt_encodeVertexBuffer(
-            encoded_data.as_ptr() as *mut ::std::os::raw::c_uchar,
-            encoded_data.len(),
-            input.as_ptr() as *const ::std::os::raw::c_void,
-            input.len(),
-            mem::size_of::<T>(),
-        )
-    };
-
-    encoded_data.resize(encoded_size, 0u8);
-    encoded_data
-}
-
-fn encode_index_coverage() {
-    println!("encode_index_coverage: unimplemented");
-    //unimplemented!();
-    /*
-    // note: 4 6 5 triangle here is a combo-breaker:
-    // we encode it without rotating, a=next, c=next - this means we do *not* bump next to 6
-    // which means that the next triangle can't be encoded via next sequencing!
-    const unsigned int indices[] = {0, 1, 2, 2, 1, 3, 4, 6, 5, 7, 8, 9};
-    const size_t index_count = sizeof(indices) / sizeof(indices[0]);
-    const size_t vertex_count = 10;
-    
-    std::vector<unsigned char> buffer(meshopt_encodeIndexBufferBound(index_count, vertex_count));
-    buffer.resize(meshopt_encodeIndexBuffer(&buffer[0], buffer.size(), indices, index_count));
-    
-    // check that encode is memory-safe; note that we reallocate the buffer for each try to make sure ASAN can verify buffer access
-    for (size_t i = 0; i <= buffer.size(); ++i)
-    {
-        std::vector<unsigned char> shortbuffer(i);
-        size_t result = meshopt_encodeIndexBuffer(i == 0 ? 0 : &shortbuffer[0], i, indices, index_count);
-        (void)result;
-    
-        if (i == buffer.size())
-            assert(result == buffer.size());
-        else
-            assert(result == 0);
-    }
-    
-    // check that decode is memory-safe; note that we reallocate the buffer for each try to make sure ASAN can verify buffer access
-    unsigned int destination[index_count];
-    
-    for (size_t i = 0; i <= buffer.size(); ++i)
-    {
-        std::vector<unsigned char> shortbuffer(buffer.begin(), buffer.begin() + i);
-        int result = meshopt_decodeIndexBuffer(destination, index_count, i == 0 ? 0 : &shortbuffer[0], i);
-        (void)result;
-    
-        if (i == buffer.size())
-            assert(result == 0);
-        else
-            assert(result < 0);
-    }
-    
-    // check that decoder doesn't accept extra bytes after a valid stream
-    {
-        std::vector<unsigned char> largebuffer(buffer);
-        largebuffer.push_back(0);
-    
-        int result = meshopt_decodeIndexBuffer(destination, index_count, &largebuffer[0], largebuffer.size());
-        (void)result;
-    
-        assert(result < 0);
-    }
-    
-    // check that decoder doesn't accept malformed headers
-    {
-        std::vector<unsigned char> brokenbuffer(buffer);
-        brokenbuffer[0] = 0;
-    
-        int result = meshopt_decodeIndexBuffer(destination, index_count, &brokenbuffer[0], brokenbuffer.size());
-        (void)result;
-    
-        assert(result < 0);
-    }
-    */}
-
-fn encode_vertex_coverage() {
-    println!("encode_vertex_coverage: unimplemented");
-
-    let mut vertices: Vec<PackedVertexOct> = Vec::with_capacity(4);
-
-    vertices.push(PackedVertexOct {
-        p: [0, 0, 0],
-        n: [0, 0],
-        t: [0, 0],
-    });
-
-    vertices.push(PackedVertexOct {
-        p: [300, 0, 0],
-        n: [0, 0],
-        t: [500, 0],
-    });
-
-    vertices.push(PackedVertexOct {
-        p: [0, 300, 0],
-        n: [0, 0],
-        t: [0, 500],
-    });
-
-    vertices.push(PackedVertexOct {
-        p: [300, 300, 0],
-        n: [0, 0],
-        t: [500, 500],
-    });
-
-    let _encoded = pack_vertices(&vertices);
-
-    /*
-    // check that encode is memory-safe; note that we reallocate the buffer for each try to make sure ASAN can verify buffer access
-    for (size_t i = 0; i <= buffer.size(); ++i)
-    {
-        std::vector<unsigned char> shortbuffer(i);
-        size_t result = meshopt_encodeVertexBuffer(i == 0 ? 0 : &shortbuffer[0], i, vertices, vertex_count, sizeof(PV));
-        (void)result;
-    
-        if (i == buffer.size())
-            assert(result == buffer.size());
-        else
-            assert(result == 0);
-    }
-    
-    // check that decode is memory-safe; note that we reallocate the buffer for each try to make sure ASAN can verify buffer access
-    PV destination[vertex_count];
-    
-    for (size_t i = 0; i <= buffer.size(); ++i)
-    {
-        std::vector<unsigned char> shortbuffer(buffer.begin(), buffer.begin() + i);
-        int result = meshopt_decodeVertexBuffer(destination, vertex_count, sizeof(PV), i == 0 ? 0 : &shortbuffer[0], i);
-        (void)result;
-    
-        if (i == buffer.size())
-            assert(result == 0);
-        else
-            assert(result < 0);
-    }
-    
-    // check that decoder doesn't accept extra bytes after a valid stream
-    {
-        std::vector<unsigned char> largebuffer(buffer);
-        largebuffer.push_back(0);
-    
-        int result = meshopt_decodeVertexBuffer(destination, vertex_count, sizeof(PV), &largebuffer[0], largebuffer.size());
-        (void)result;
-    
-        assert(result < 0);
-    }
-    
-    // check that decoder doesn't accept malformed headers
-    {
-        std::vector<unsigned char> brokenbuffer(buffer);
-        brokenbuffer[0] = 0;
-    
-        int result = meshopt_decodeVertexBuffer(destination, vertex_count, sizeof(PV), &brokenbuffer[0], brokenbuffer.size());
-        (void)result;
-    
-        assert(result < 0);
-    }
-    */
-}
-
-fn process_coverage() {
-    encode_index_coverage();
-    encode_vertex_coverage();
 }
 
 fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
@@ -812,7 +527,7 @@ fn encode_index(mesh: &Mesh) {
 }
 
 fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) {
-    let packed = pack_mesh::<T>(&mesh.vertices);
+    let packed = pack_vertices::<T>(&mesh.vertices);
     let encoded = meshopt::encode_vertex_buffer(&packed);
     let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
     assert!(packed == decoded);
@@ -825,8 +540,8 @@ fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) 
         (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64);
 }
 
-fn pack_vertex<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
-    let vertices = pack_mesh::<T>(&mesh.vertices);
+fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
+    let vertices = pack_vertices::<T>(&mesh.vertices);
     let compressed = compress(&vertices);
 
     println!(
@@ -835,15 +550,6 @@ fn pack_vertex<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
         (vertices.len() * mem::size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
         (compressed.len() * 8) as f64 / mesh.vertices.len() as f64
     );
-}
-
-fn pack_mesh<T: FromVertex + Default + Clone>(input: &[Vertex]) -> Vec<T> {
-    let mut vertices: Vec<T> = Vec::new();
-    vertices.resize(input.len(), T::default());
-    for i in 0..input.len() {
-        vertices[i].from_vertex(&input[i]);
-    }
-    vertices
 }
 
 fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
@@ -897,7 +603,7 @@ fn process(path: Option<PathBuf>) {
     stripify(&copy);
 
     encode_index(&copy);
-    pack_vertex::<PackedVertex>(&copy, "");
+    pack_mesh::<PackedVertex>(&copy, "");
     encode_vertex::<PackedVertex>(&copy, "");
     encode_vertex::<PackedVertexOct>(&copy, "0");
 

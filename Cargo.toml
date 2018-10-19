@@ -13,6 +13,7 @@ license = "MIT"
 build = "build.rs"
 include = [
     "src/*.rs",
+    "gen/bindings.rs",
     "build.rs",
     "Cargo.toml",
     "vendor/src/meshoptimizer.h",

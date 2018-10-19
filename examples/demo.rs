@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 #[allow(unused_imports)]
 use meshopt::*;
@@ -531,7 +531,7 @@ fn encode_index(mesh: &Mesh) {
     let encode_start = Instant::now();
     let encoded = meshopt::encode_index_buffer(&mesh.indices, mesh.vertices.len());
     let encode_elapsed = encode_start.elapsed();
-    
+
     let decode_start = Instant::now();
     let decoded = meshopt::decode_index_buffer::<u32>(&encoded, mesh.indices.len());
     let decode_elapsed = decode_start.elapsed();
@@ -574,11 +574,11 @@ fn encode_index(mesh: &Mesh) {
 
 fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) {
     let packed = pack_vertices::<T>(&mesh.vertices);
-    
+
     let encode_start = Instant::now();
     let encoded = meshopt::encode_vertex_buffer(&packed);
     let encode_elapsed = encode_start.elapsed();
-    
+
     let decode_start = Instant::now();
     let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
     let decode_elapsed = decode_start.elapsed();

@@ -9,7 +9,7 @@ documentation = "https://docs.rs/meshopt"
 readme = "README.md"
 keywords = ["rust", "mesh", "optimize", "cache", "3d", "rendering"]
 categories = ["rendering", "rendering::engine", ]
-license = "MIT"
+license = "MIT/Apache-2.0"
 build = "build.rs"
 include = [
     "src/*.rs",

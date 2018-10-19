@@ -30,9 +30,11 @@ fn main() {
     if target.contains("darwin") {
         build
             .flag("-std=c++11")
-            .cpp(true)
             .cpp_link_stdlib("c++")
-            .cpp_set_stdlib("c++");
+            .cpp_set_stdlib("c++")
+            .cpp(true);
+    } else if target.contains("linux") {
+        build.flag("-std=c++11").cpp_link_stdlib("stdc++").cpp(true);
     }
 
     build.compile("meshopt_cpp");

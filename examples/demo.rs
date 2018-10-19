@@ -136,8 +136,7 @@ impl Mesh {
             merged_vertices.append(&mut vertices);
         }
 
-        let (total_vertices, vertex_remap) =
-            meshopt::generate_vertex_remap(&merged_vertices, None);
+        let (total_vertices, vertex_remap) = meshopt::generate_vertex_remap(&merged_vertices, None);
 
         let mut mesh = Self::default();
 

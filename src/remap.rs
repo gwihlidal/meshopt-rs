@@ -6,26 +6,22 @@ pub fn generate_vertex_remap<T>(vertices: &[T], indices: Option<&[u32]>) -> (usi
     remap.resize(vertices.len(), 0u32);
     let vertex_count = unsafe {
         match indices {
-            Some(indices) => {
-                ffi::meshopt_generateVertexRemap(
-                    remap.as_ptr() as *mut ::std::os::raw::c_uint,
-                    indices.as_ptr() as *const ::std::os::raw::c_uint,
-                    indices.len(),
-                    vertices.as_ptr() as *const ::std::os::raw::c_void,
-                    vertices.len(),
-                    mem::size_of::<T>(),
-                )
-            }
-            None => {
-                ffi::meshopt_generateVertexRemap(
-                    remap.as_ptr() as *mut ::std::os::raw::c_uint,
-                    ::std::ptr::null(),
-                    vertices.len(),
-                    vertices.as_ptr() as *const ::std::os::raw::c_void,
-                    vertices.len(),
-                    mem::size_of::<T>(),
-                )
-            }
+            Some(indices) => ffi::meshopt_generateVertexRemap(
+                remap.as_ptr() as *mut ::std::os::raw::c_uint,
+                indices.as_ptr() as *const ::std::os::raw::c_uint,
+                indices.len(),
+                vertices.as_ptr() as *const ::std::os::raw::c_void,
+                vertices.len(),
+                mem::size_of::<T>(),
+            ),
+            None => ffi::meshopt_generateVertexRemap(
+                remap.as_ptr() as *mut ::std::os::raw::c_uint,
+                ::std::ptr::null(),
+                vertices.len(),
+                vertices.as_ptr() as *const ::std::os::raw::c_void,
+                vertices.len(),
+                mem::size_of::<T>(),
+            ),
         }
     };
     (vertex_count, remap)

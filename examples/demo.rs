@@ -283,7 +283,7 @@ impl Mesh {
             write!(buffer, "v {} {} {}\n", self.vertices[i].p[0], self.vertices[i].p[1], self.vertices[i].p[2])?;
             write!(buffer, "vn {} {} {}\n", self.vertices[i].n[0], self.vertices[i].n[1], self.vertices[i].n[2])?;
             write!(buffer, "vt {} {} {}\n", self.vertices[i].t[0], self.vertices[i].t[1], 0f32)?;
-    }
+        }
 
         for i in (0..self.indices.len()).step_by(3) {
             let i0 = self.indices[i + 0] + 1;
@@ -811,11 +811,8 @@ fn encode_index(mesh: &Mesh) {
     );
 }
 
-fn encode_vertex<T: Clone + Default + Eq>(mesh: &Mesh, name: &str) {
-    let mut packed: Vec<T> = Vec::new();
-    packed.resize(mesh.vertices.len(), Default::default());
-    pack_mesh(&mut packed, &mesh.vertices);
-
+fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) {
+    let packed = pack_mesh::<T>(&mesh.vertices);
     let encoded = meshopt::encode_vertex_buffer(&packed);
     let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
     assert!(packed == decoded);
@@ -829,15 +826,8 @@ fn encode_vertex<T: Clone + Default + Eq>(mesh: &Mesh, name: &str) {
 }
 
 fn pack_vertex<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
-    let mut vertices: Vec<T> = Vec::with_capacity(mesh.vertices.len());
-    for vertex in &mesh.vertices {
-        let mut packed_vertex = T::default();
-        packed_vertex.from_vertex(&vertex);
-        vertices.push(packed_vertex);
-    }
-    pack_mesh(&mut vertices, &mesh.vertices);
-
-    let compressed = compress(&mut vertices);
+    let vertices = pack_mesh::<T>(&mesh.vertices);
+    let compressed = compress(&vertices);
 
     println!(
         "VtxPack{}  : {:.1} bits/vertex (post-deflate {:.1} bits/vertices)",
@@ -847,8 +837,13 @@ fn pack_vertex<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     );
 }
 
-fn pack_mesh<T, U>(output: &mut [T], input: &[U]) {
-    println!("pack_mesh: unimplemented");
+fn pack_mesh<T: FromVertex + Default + Clone>(input: &[Vertex]) -> Vec<T> {
+    let mut vertices: Vec<T> = Vec::new();
+    vertices.resize(input.len(), T::default());
+    for i in 0..input.len() {
+        vertices[i].from_vertex(&input[i]);
+    }
+    vertices
 }
 
 fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {

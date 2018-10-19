@@ -568,9 +568,16 @@ fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     );
 }
 
+// GW-TODO: Wow, on Windows the bound type is u32, and on OSX the bound type is u64 (fix me)
+#[cfg(windows)]
+type BoundsType = u32;
+
+#[cfg(not(windows))]
+type BoundsType = u64;
+
 fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
     let input_size = data.len() * mem::size_of::<T>();
-    let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as u64);
+    let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as BoundsType);
     let mut compress_buffer: Vec<u8> = Vec::new();
     compress_buffer.resize(compress_bound as usize, 0u8);
     let flags = miniz_oxide_c_api::tdefl_create_comp_flags_from_zip_params(

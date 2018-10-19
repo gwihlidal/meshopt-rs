@@ -6,6 +6,7 @@ meshopt
 [![Documentation](https://docs.rs/meshopt/badge.svg)](https://docs.rs/meshopt)
 [![](https://tokei.rs/b1/github/gwihlidal/meshopt-rs)](https://github.com/gwihlidal/meshopt-rs)
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![APACHE2](https://img.shields.io/badge/license-APACHE2-blue.svg)
 
 This crate provides an FFI layer and idiomatic rust wrappers for the excellent [meshoptimizer](https://github.com/zeux/meshoptimizer) C/C++ library.
 

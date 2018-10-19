@@ -8,7 +8,10 @@ extern crate tobj;
 use float_cmp::ApproxEqUlps;
 use rand::{thread_rng, Rng};
 use std::mem;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::io::prelude::*;
+use std::io::BufWriter;
+use std::fs::File;
 
 const CACHE_SIZE: usize = 16;
 
@@ -198,9 +201,9 @@ impl Mesh {
             let mut vertices: Vec<Vertex> = Vec::new();
 
             let mesh = &m.mesh;
-            println!("model[{}].name = \'{}\'", i, m.name);
-            println!("Size of model[{}].indices: {}", i, mesh.indices.len());
-            println!("model[{}].vertices: {}", i, mesh.positions.len() / 3);
+            //println!("model[{}].name = \'{}\'", i, m.name);
+            //println!("Size of model[{}].indices: {}", i, mesh.indices.len());
+            //println!("model[{}].vertices: {}", i, mesh.positions.len() / 3);
 
             total_indices += mesh.indices.len();
 
@@ -273,12 +276,25 @@ impl Mesh {
         mesh
     }
 
-    #[allow(dead_code)]
-    fn save_obj(&self, _path: &Path) {
-        println!("save_obj: unimplemented");
+    fn save_obj(&self, path: &Path) -> std::io::Result<()> {
+        let mut buffer = File::create(path)?;
+
+        for i in 0..self.vertices.len() {
+            write!(buffer, "v {} {} {}\n", self.vertices[i].p[0], self.vertices[i].p[1], self.vertices[i].p[2])?;
+            write!(buffer, "vn {} {} {}\n", self.vertices[i].n[0], self.vertices[i].n[1], self.vertices[i].n[2])?;
+            write!(buffer, "vt {} {} {}\n", self.vertices[i].t[0], self.vertices[i].t[1], 0f32)?;
     }
 
-    #[allow(dead_code)]
+        for i in (0..self.indices.len()).step_by(3) {
+            let i0 = self.indices[i + 0] + 1;
+            let i1 = self.indices[i + 1] + 1;
+            let i2 = self.indices[i + 2] + 1;
+            write!(buffer, "f {}/{}/{} {}/{}/{} {}/{}/{}\n", i0, i0, i0, i1, i1, i1, i2, i2, i2);
+        }
+
+        Ok(())
+    }
+
     fn create_plane(size: u32) -> Self {
         let mut mesh = Self {
             vertices: Vec::with_capacity((size as usize + 1) * (size as usize + 1)),
@@ -858,8 +874,15 @@ fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
     compress_buffer
 }
 
-fn main() {
-    let mesh = Mesh::load_obj(&Path::new("examples/pirate.obj"));
+fn process(path: Option<PathBuf>) {
+    let mesh = match path {
+        Some(path) => {
+            Mesh::load_obj(&path)
+        },
+        None => {
+            Mesh::create_plane(200)
+        }
+    };
 
     optimize_mesh(&mesh, "Original", opt_none);
     optimize_mesh(&mesh, "Random", opt_random_shuffle);
@@ -874,6 +897,8 @@ fn main() {
     meshopt::optimize_vertex_cache_in_place(&mut copy.indices, copy.vertices.len());
     meshopt::optimize_vertex_fetch_in_place(&mut copy.indices, &mut copy.vertices);
 
+    //copy.save_obj(Path::new("H:/Test.obj"));
+
     stripify(&copy);
 
     encode_index(&copy);
@@ -882,4 +907,9 @@ fn main() {
     encode_vertex::<PackedVertexOct>(&copy, "0");
 
     simplify(&mesh);
+}
+
+fn main() {
+    //process(None);
+    process(Some(Path::new("examples/pirate.obj").to_path_buf()));
 }

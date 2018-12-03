@@ -1,6 +1,6 @@
 extern crate libc;
 extern crate meshopt;
-extern crate miniz_oxide_c_api;
+extern crate miniz_oxide;
 extern crate rand;
 extern crate tobj;
 
@@ -609,34 +609,20 @@ fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     );
 }
 
-// GW-TODO: Wow, on Windows the bound type is u32, and on OSX the bound type is u64 (fix me)
-#[cfg(windows)]
-type BoundsType = u32;
-
-#[cfg(not(windows))]
-type BoundsType = u64;
+#[inline(always)]
+pub fn typed_to_bytes<T>(typed: &[T]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(
+            typed.as_ptr() as *const u8,
+            typed.len() * mem::size_of::<T>(),
+        )
+    }
+}
 
 fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
-    let input_size = data.len() * mem::size_of::<T>();
-    let compress_bound = miniz_oxide_c_api::mz_compressBound(input_size as BoundsType);
-    let mut compress_buffer: Vec<u8> = Vec::new();
-    compress_buffer.resize(compress_bound as usize, 0u8);
-    let flags = miniz_oxide_c_api::tdefl_create_comp_flags_from_zip_params(
-        6, //miniz_oxide_c_api::MZ_DEFAULT_LEVEL,
-        15,
-        miniz_oxide_c_api::MZ_DEFAULT_STRATEGY,
-    );
-    let compress_size = unsafe {
-        miniz_oxide_c_api::tdefl_compress_mem_to_mem(
-            compress_buffer.as_mut_ptr() as *mut ::libc::c_void,
-            compress_buffer.len(),
-            data.as_ptr() as *const ::libc::c_void,
-            input_size,
-            flags as i32,
-        )
-    };
-    compress_buffer.resize(compress_size as usize, 0u8);
-    compress_buffer
+    use miniz_oxide::deflate::compress_to_vec;
+    let bytes: &[u8] = typed_to_bytes(data);
+    compress_to_vec(bytes, 6 /* 0-10 compression level */)
 }
 
 fn process(path: Option<PathBuf>, export: bool) {

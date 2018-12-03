@@ -46,7 +46,7 @@ optional = true
 
 [dev-dependencies]
 tobj = "0.1.6"
-miniz_oxide_c_api = "0.2.0"
+miniz_oxide = "0.2.0"
 rand = "0.6.1"
 libc = "0.2.44"
 

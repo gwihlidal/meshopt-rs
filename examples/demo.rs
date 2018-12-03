@@ -4,7 +4,7 @@ extern crate miniz_oxide;
 extern crate rand;
 extern crate tobj;
 
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, seq::SliceRandom};
 use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
@@ -314,7 +314,8 @@ fn opt_none(_: &mut Mesh) {
 fn opt_random_shuffle(mesh: &mut Mesh) {
     let face_count = mesh.indices.len() / 3;
     let mut faces: Vec<usize> = (0..face_count).map(|x| x).collect();
-    thread_rng().shuffle(&mut faces);
+    let mut rng = thread_rng();
+    faces.shuffle(&mut rng);
 
     let mut result: Vec<u32> = Vec::with_capacity(mesh.indices.len());
     faces.iter().for_each(|face| {

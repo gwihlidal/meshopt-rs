@@ -5,8 +5,7 @@ use DecodePosition;
 /// Vertex transform cache optimizer
 /// Reorders indices to reduce the number of GPU vertex shader invocations
 pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
-    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
-    optimized.resize(indices.len(), 0u32);
+    let mut optimized: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_optimizeVertexCache(
             optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,
@@ -36,8 +35,7 @@ pub fn optimize_vertex_cache_fifo(
     vertex_count: usize,
     cache_size: u32,
 ) -> Vec<u32> {
-    let mut optimized: Vec<u32> = Vec::with_capacity(indices.len());
-    optimized.resize(indices.len(), 0u32);
+    let mut optimized: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_optimizeVertexCacheFifo(
             optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,

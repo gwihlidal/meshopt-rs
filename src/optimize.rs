@@ -70,8 +70,7 @@ pub fn optimize_vertex_cache_fifo_in_place(
 /// destination must contain enough space for the resulting vertex buffer (vertex_count elements)
 /// indices is used both as an input and as an output index buffer
 pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: &[T]) -> Vec<T> {
-    let mut result: Vec<T> = Vec::new();
-    result.resize(vertices.len(), T::default());
+    let mut result: Vec<T> = vec![T::default(); vertices.len()];
     let next_vertex = unsafe {
         ffi::meshopt_optimizeVertexFetch(
             result.as_mut_ptr() as *mut ::std::os::raw::c_void,
@@ -105,8 +104,7 @@ pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]
 ///
 /// destination must contain enough space for the resulting remap table (`vertex_count` elements)
 pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<u32> {
-    let mut result: Vec<u32> = Vec::new();
-    result.resize(vertex_count, 0u32);
+    let mut result: Vec<u32> = vec![0; vertex_count];
     let next_vertex = unsafe {
         ffi::meshopt_optimizeVertexFetchRemap(
             result.as_mut_ptr() as *mut ::std::os::raw::c_uint,

@@ -105,8 +105,7 @@ impl DecodePosition for Vertex {
 }
 
 pub fn pack_vertices<T: FromVertex + Default + Clone>(input: &[Vertex]) -> Vec<T> {
-    let mut vertices: Vec<T> = Vec::new();
-    vertices.resize(input.len(), T::default());
+    let mut vertices: Vec<T> = vec![T::default(); input.len()];
     for i in 0..input.len() {
         vertices[i].from_vertex(&input[i]);
     }

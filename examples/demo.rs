@@ -4,15 +4,13 @@ extern crate miniz_oxide;
 extern crate rand;
 extern crate tobj;
 
-use rand::{thread_rng, seq::SliceRandom};
+use meshopt::*;
+use rand::{seq::SliceRandom, thread_rng};
 use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-
-#[allow(unused_imports)]
-use meshopt::*;
 
 const CACHE_SIZE: usize = 16;
 
@@ -608,16 +606,6 @@ fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
         (vertices.len() * mem::size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
         (compressed.len() * 8) as f64 / mesh.vertices.len() as f64
     );
-}
-
-#[inline(always)]
-pub fn typed_to_bytes<T>(typed: &[T]) -> &[u8] {
-    unsafe {
-        std::slice::from_raw_parts(
-            typed.as_ptr() as *const u8,
-            typed.len() * mem::size_of::<T>(),
-        )
-    }
 }
 
 fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {

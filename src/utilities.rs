@@ -1,6 +1,17 @@
+#[inline(always)]
 pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     unsafe {
         ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+    }
+}
+
+#[inline(always)]
+pub fn typed_to_bytes<T>(typed: &[T]) -> &[u8] {
+    unsafe {
+        ::std::slice::from_raw_parts(
+            typed.as_ptr() as *const u8,
+            typed.len() * ::std::mem::size_of::<T>(),
+        )
     }
 }
 
@@ -26,7 +37,7 @@ pub fn convert_indices_16_to_32(indices: &[u16]) -> Vec<u32> {
 /// Quantize a float in [0..1] range into an N-bit fixed point unorm value
 /// Assumes reconstruction function (q / (2^N-1)), which is the case for fixed-function normalized fixed point conversion
 /// Maximum reconstruction error: 1/2^(N+1)
-#[inline]
+#[inline(always)]
 pub fn quantize_unorm(v: f32, n: i32) -> i32 {
     let scale = ((1i32 << n) - 1i32) as f32;
     let v = if v >= 0f32 { v } else { 0f32 };
@@ -38,7 +49,7 @@ pub fn quantize_unorm(v: f32, n: i32) -> i32 {
 /// Quantize a float in [-1..1] range into an N-bit fixed point snorm value
 /// Assumes reconstruction function (q / (2^(N-1)-1)), which is the case for fixed-function normalized fixed point conversion (except early OpenGL versions)
 /// Maximum reconstruction error: 1/2^N
-#[inline]
+#[inline(always)]
 pub fn quantize_snorm(v: f32, n: u32) -> i32 {
     let scale = ((1 << (n - 1)) - 1) as f32;
     let round = if v >= 0f32 { 0.5f32 } else { -0.5f32 };
@@ -58,7 +69,7 @@ union FloatUInt {
 /// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
 /// Representable magnitude range: [6e-5; 65504]
 /// Maximum relative reconstruction error: 5e-4
-#[inline]
+#[inline(always)]
 pub fn quantize_half(v: f32) -> u16 {
     let u = FloatUInt { fl: v };
     let ui = unsafe { u.ui };
@@ -83,6 +94,7 @@ pub fn quantize_half(v: f32) -> u16 {
 /// Quantize a float into a floating point value with a limited number of significant mantissa bits
 /// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
 /// Assumes N is in a valid mantissa precision range, which is 1..23
+#[inline(always)]
 pub fn quantize_float(v: f32, n: i32) -> f32 {
     let mut u = FloatUInt { fl: v };
     let mut ui = unsafe { u.ui };

@@ -3,8 +3,7 @@ use std::mem;
 
 pub fn encode_index_buffer(indices: &[u32], vertex_count: usize) -> Vec<u8> {
     let bounds = unsafe { ffi::meshopt_encodeIndexBufferBound(indices.len(), vertex_count) };
-    let mut result: Vec<u8> = Vec::new();
-    result.resize(bounds, 0u8);
+    let mut result: Vec<u8> = vec![0; bounds];
     let size = unsafe {
         ffi::meshopt_encodeIndexBuffer(
             result.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
@@ -19,8 +18,7 @@ pub fn encode_index_buffer(indices: &[u32], vertex_count: usize) -> Vec<u8> {
 
 pub fn decode_index_buffer<T: Clone + Default>(encoded: &[u8], index_count: usize) -> Vec<T> {
     assert!(mem::size_of::<T>() == 2 || mem::size_of::<T>() == 4);
-    let mut result: Vec<T> = Vec::new();
-    result.resize(index_count, Default::default());
+    let mut result: Vec<T> = vec![Default::default(); index_count];
     let success = unsafe {
         ffi::meshopt_decodeIndexBuffer(
             result.as_mut_ptr() as *mut ::std::os::raw::c_void,
@@ -37,8 +35,7 @@ pub fn decode_index_buffer<T: Clone + Default>(encoded: &[u8], index_count: usiz
 pub fn encode_vertex_buffer<T>(vertices: &[T]) -> Vec<u8> {
     let bounds =
         unsafe { ffi::meshopt_encodeVertexBufferBound(vertices.len(), mem::size_of::<T>()) };
-    let mut result: Vec<u8> = Vec::new();
-    result.resize(bounds, 0u8);
+    let mut result: Vec<u8> = vec![0; bounds];
     let size = unsafe {
         ffi::meshopt_encodeVertexBuffer(
             result.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
@@ -53,8 +50,7 @@ pub fn encode_vertex_buffer<T>(vertices: &[T]) -> Vec<u8> {
 }
 
 pub fn decode_vertex_buffer<T: Clone + Default>(encoded: &[u8], vertex_count: usize) -> Vec<T> {
-    let mut result: Vec<T> = Vec::new();
-    result.resize(vertex_count, Default::default());
+    let mut result: Vec<T> = vec![Default::default(); vertex_count];
     let success = unsafe {
         ffi::meshopt_decodeVertexBuffer(
             result.as_mut_ptr() as *mut ::std::os::raw::c_void,

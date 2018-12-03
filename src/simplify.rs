@@ -12,8 +12,7 @@ pub fn simplify<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
-    let mut result: Vec<u32> = Vec::new();
-    result.resize(indices.len(), 0u32);
+    let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplify(
             result.as_mut_ptr() as *mut ::std::os::raw::c_uint,

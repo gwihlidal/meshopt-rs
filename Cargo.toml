@@ -1,6 +1,6 @@
 [package]
 name = "meshopt"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for zeux/meshoptimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"
@@ -40,13 +40,20 @@ float-cmp = "0.4.0"
 [build-dependencies]
 cc = { version = "1.0.25", features = ["parallel"] }
 
+[build-dependencies.bindgen]
+version = "0.44.0"
+optional = true
+
 [dev-dependencies]
 tobj = "0.1.6"
 miniz_oxide_c_api = "0.2.0"
-rand = "0.5.5"
-libc = "0.2.43"
+rand = "0.6.1"
+libc = "0.2.44"
 
 [profile.release]
 lto = true
 opt-level = 3
 codegen-units = 1
+
+[features]
+generate_bindings=["bindgen"]

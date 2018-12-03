@@ -1,3 +1,5 @@
+#[cfg(feature = "generate_bindings")]
+extern crate bindgen;
 extern crate cc;
 
 use std::env;
@@ -38,4 +40,26 @@ fn main() {
     }
 
     build.compile("meshopt_cpp");
+
+    generate_bindings("gen/bindings.rs");
 }
+
+#[cfg(feature = "generate_bindings")]
+fn generate_bindings(output_file: &str) {
+    let bindings = bindgen::Builder::default()
+        .header("vendor/src/meshoptimizer.h")
+        .rustfmt_bindings(true)
+        .blacklist_type("__darwin_.*")
+        .whitelist_function("meshopt.*")
+        .trust_clang_mangling(false)
+        .layout_tests(false)
+        .generate()
+        .expect("Unable to generate bindings!");
+
+    bindings
+        .write_to_file(std::path::Path::new(output_file))
+        .expect("Unable to write bindings!");
+}
+
+#[cfg(not(feature = "generate_bindings"))]
+fn generate_bindings(_: &str) {}

@@ -8,13 +8,24 @@ pub type Meshlet = ffi::meshopt_Meshlet;
 /// The resulting data can be used to render meshes using NVidia programmable mesh shading pipeline, or in other cluster-based renderers.
 /// For maximum efficiency the index buffer being converted has to be optimized for vertex cache first.
 /// Note: `max_vertices` must be <= 64 and `max_triangles` must be <= 126
-pub fn build_meshlets(indices: &[u32], vertex_count: usize, max_vertices: usize, max_triangles: usize) -> Vec<Meshlet> {
-    let meshlet_count = unsafe {
-        ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles)
-    };
+pub fn build_meshlets(
+    indices: &[u32],
+    vertex_count: usize,
+    max_vertices: usize,
+    max_triangles: usize,
+) -> Vec<Meshlet> {
+    let meshlet_count =
+        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
     let mut meshlets: Vec<Meshlet> = vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
     let count = unsafe {
-        ffi::meshopt_buildMeshlets(meshlets.as_mut_ptr(), indices.as_ptr(), indices.len(), vertex_count, max_vertices, max_triangles)
+        ffi::meshopt_buildMeshlets(
+            meshlets.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertex_count,
+            max_vertices,
+            max_triangles,
+        )
     };
     meshlets.resize(count, unsafe { ::std::mem::zeroed() });
     meshlets

@@ -406,8 +406,15 @@ fn shadow(mesh: &Mesh) {
     // vertex cache!
     meshopt::optimize_vertex_cache_in_place(&mut shadow_indices, mesh.vertices.len());
 
-    let vcs = meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
-    let vcss = meshopt::analyze_vertex_cache(&shadow_indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcs =
+        meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcss = meshopt::analyze_vertex_cache(
+        &shadow_indices,
+        mesh.vertices.len(),
+        CACHE_SIZE as u32,
+        0,
+        0,
+    );
 
     let mut shadow_flags: Vec<usize> = vec![0; mesh.vertices.len()];
     let mut shadow_vertices: usize = 0;
@@ -426,11 +433,16 @@ fn shadow(mesh: &Mesh) {
 }
 
 fn meshlets(mesh: &Mesh) {
-    let max_vertices =  64;
+    let max_vertices = 64;
     let max_triangles = 126;
 
     let process_start = Instant::now();
-    let meshlets = meshopt::build_meshlets(&mesh.indices, mesh.vertices.len(), max_vertices, max_triangles);
+    let meshlets = meshopt::build_meshlets(
+        &mesh.indices,
+        mesh.vertices.len(),
+        max_vertices,
+        max_triangles,
+    );
     let process_elapsed = process_start.elapsed();
 
     let mut avg_vertices = 0f64;
@@ -447,10 +459,10 @@ fn meshlets(mesh: &Mesh) {
         };
     }
 
-	avg_vertices /= meshlets.len() as f64;
-	avg_triangles /= meshlets.len() as f64;
+    avg_vertices /= meshlets.len() as f64;
+    avg_triangles /= meshlets.len() as f64;
 
-	println!("Meshlets : {} meshlets (avg vertices {:.1}, avg triangles {:.1}, not full {}) in {:.2} msec",
+    println!("Meshlets : {} meshlets (avg vertices {:.1}, avg triangles {:.1}, not full {}) in {:.2} msec",
         meshlets.len(),
         avg_vertices,
         avg_triangles,
@@ -460,25 +472,25 @@ fn meshlets(mesh: &Mesh) {
     let camera: [f32; 3] = [100.0, 100.0, 100.0];
 
     let mut rejected = 0;
-	let mut rejected_s8 = 0;
-	let mut rejected_alt = 0;
-	let mut rejected_alt_s8 = 0;
-	let mut accepted = 0;
-	let mut accepted_s8 = 0;
+    let mut rejected_s8 = 0;
+    let mut rejected_alt = 0;
+    let mut rejected_alt_s8 = 0;
+    let mut accepted = 0;
+    let mut accepted_s8 = 0;
 
     let test_start = Instant::now();
     for meshlet in &meshlets {
         let bounds = meshopt::compute_meshlet_bounds(&meshlet, &mesh.vertices);
 
         // trivial accept: we can't ever backface cull this meshlet
-		if bounds.cone_cutoff >= 1f32 {
+        if bounds.cone_cutoff >= 1f32 {
             accepted += 1;
         }
 
         if bounds.cone_cutoff_s8 >= 127 {
             accepted_s8 += 1;
         }
-        
+
         // perspective projection: dot(normalize(cone_apex - camera_position), cone_axis) > cone_cutoff
         let mview: [f32; 3] = [
             bounds.cone_apex[0] - camera[0],
@@ -488,16 +500,24 @@ fn meshlets(mesh: &Mesh) {
 
         let mviewlength = (mview[0] * mview[0] + mview[1] * mview[1] + mview[2] * mview[2]).sqrt();
 
-        if mview[0] * bounds.cone_axis[0] + mview[1] * bounds.cone_axis[1] + mview[2] * bounds.cone_axis[2] >= bounds.cone_cutoff * mviewlength {
+        if mview[0] * bounds.cone_axis[0]
+            + mview[1] * bounds.cone_axis[1]
+            + mview[2] * bounds.cone_axis[2]
+            >= bounds.cone_cutoff * mviewlength
+        {
             rejected += 1;
         }
 
-        if mview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0) + mview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0) + mview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0) >= (bounds.cone_cutoff_s8 as f32 / 127.0) * mviewlength {
+        if mview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0)
+            + mview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0)
+            + mview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0)
+            >= (bounds.cone_cutoff_s8 as f32 / 127.0) * mviewlength
+        {
             rejected_s8 += 1;
         }
-		
-		// alternative formulation for perspective projection that doesn't use apex (and uses cluster bounding sphere instead):
-		// dot(normalize(center - camera_position), cone_axis) > cone_cutoff + radius / length(center - camera_position)
+
+        // alternative formulation for perspective projection that doesn't use apex (and uses cluster bounding sphere instead):
+        // dot(normalize(center - camera_position), cone_axis) > cone_cutoff + radius / length(center - camera_position)
         let cview: [f32; 3] = [
             bounds.center[0] - camera[0],
             bounds.center[1] - camera[1],
@@ -506,11 +526,19 @@ fn meshlets(mesh: &Mesh) {
 
         let cviewlength = (cview[0] * cview[0] + cview[1] * cview[1] + cview[2] * cview[2]).sqrt();
 
-        if cview[0] * bounds.cone_axis[0] + cview[1] * bounds.cone_axis[1] + cview[2] * bounds.cone_axis[2] >= bounds.cone_cutoff * cviewlength + bounds.radius {
+        if cview[0] * bounds.cone_axis[0]
+            + cview[1] * bounds.cone_axis[1]
+            + cview[2] * bounds.cone_axis[2]
+            >= bounds.cone_cutoff * cviewlength + bounds.radius
+        {
             rejected_alt += 1;
         }
 
-		if cview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0) + cview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0) + cview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0) >= (bounds.cone_cutoff_s8  as f32 / 127.0) * cviewlength + bounds.radius {
+        if cview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0)
+            + cview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0)
+            + cview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0)
+            >= (bounds.cone_cutoff_s8 as f32 / 127.0) * cviewlength + bounds.radius
+        {
             rejected_alt_s8 += 1;
         }
     }
@@ -524,7 +552,7 @@ fn meshlets(mesh: &Mesh) {
 	       accepted,
            accepted as f64 / (meshlets.len() as f64) * 100.0,
 	       elapsed_to_ms(test_elapsed));
-	
+
     println!("ConeCull8: rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
 	       rejected_s8,
            rejected_s8 as f64 / (meshlets.len() as f64) * 100.0,
@@ -793,7 +821,7 @@ fn process(path: Option<PathBuf>, export: bool) {
 
     stripify(&copy);
     meshlets(&copy);
-	shadow(&copy);
+    shadow(&copy);
 
     encode_index(&copy);
     pack_mesh::<PackedVertex>(&copy, "");

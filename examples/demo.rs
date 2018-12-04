@@ -396,6 +396,145 @@ fn stripify(mesh: &Mesh) {
     );
 }
 
+fn shadow(mesh: &Mesh) {
+    let process_start = Instant::now();
+    let mut shadow_indices = meshopt::generate_shadow_indices(&mesh.indices, &mesh.vertices);
+    let process_elapsed = process_start.elapsed();
+
+    // While you can't optimize the vertex data after shadow IB was constructed, you can and should optimize
+    // the shadow IB for vertex cache. This is valuable even if the original indices array was optimized for
+    // vertex cache!
+    meshopt::optimize_vertex_cache_in_place(&mut shadow_indices, mesh.vertices.len());
+
+    let vcs = meshopt::analyze_vertex_cache(&mesh.indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+    let vcss = meshopt::analyze_vertex_cache(&shadow_indices, mesh.vertices.len(), CACHE_SIZE as u32, 0, 0);
+
+    let mut shadow_flags: Vec<usize> = vec![0; mesh.vertices.len()];
+    let mut shadow_vertices: usize = 0;
+    for shadow_index in shadow_indices {
+        shadow_vertices += 1 - shadow_flags[shadow_index as usize];
+        shadow_flags[shadow_index as usize] = 1;
+    }
+
+    println!("ShadowIB : ACMR {:.6} ({:.2}x improvement); {} shadow vertices ({:.2}x improvement) in {:.2} msec",
+	       vcss.acmr,
+           vcs.vertices_transformed as f64 / vcss.vertices_transformed as f64,
+           shadow_vertices,
+           mesh.vertices.len() as f64 / shadow_vertices as f64,
+           elapsed_to_ms(process_elapsed)
+    );
+}
+
+fn meshlets(mesh: &Mesh) {
+    let max_vertices =  64;
+    let max_triangles = 126;
+
+    let process_start = Instant::now();
+    let meshlets = meshopt::build_meshlets(&mesh.indices, mesh.vertices.len(), max_vertices, max_triangles);
+    let process_elapsed = process_start.elapsed();
+
+    let mut avg_vertices = 0f64;
+    let mut avg_triangles = 0f64;
+    let mut not_full = 0usize;
+
+    for meshlet in &meshlets {
+        avg_vertices += meshlet.vertex_count as f64;
+        avg_triangles += meshlet.triangle_count as f64;
+        not_full += if (meshlet.vertex_count as usize) < max_vertices {
+            1
+        } else {
+            0
+        };
+    }
+
+	avg_vertices /= meshlets.len() as f64;
+	avg_triangles /= meshlets.len() as f64;
+
+	println!("Meshlets : {} meshlets (avg vertices {:.1}, avg triangles {:.1}, not full {}) in {:.2} msec",
+        meshlets.len(),
+        avg_vertices,
+        avg_triangles,
+        not_full,
+        elapsed_to_ms(process_elapsed));
+
+    let camera: [f32; 3] = [100.0, 100.0, 100.0];
+
+    let mut rejected = 0;
+	let mut rejected_s8 = 0;
+	let mut rejected_alt = 0;
+	let mut rejected_alt_s8 = 0;
+	let mut accepted = 0;
+	let mut accepted_s8 = 0;
+
+    let test_start = Instant::now();
+    for meshlet in &meshlets {
+        let bounds = meshopt::compute_meshlet_bounds(&meshlet, &mesh.vertices);
+
+        // trivial accept: we can't ever backface cull this meshlet
+		if bounds.cone_cutoff >= 1f32 {
+            accepted += 1;
+        }
+
+        if bounds.cone_cutoff_s8 >= 127 {
+            accepted_s8 += 1;
+        }
+        
+        // perspective projection: dot(normalize(cone_apex - camera_position), cone_axis) > cone_cutoff
+        let mview: [f32; 3] = [
+            bounds.cone_apex[0] - camera[0],
+            bounds.cone_apex[1] - camera[1],
+            bounds.cone_apex[2] - camera[2],
+        ];
+
+        let mviewlength = (mview[0] * mview[0] + mview[1] * mview[1] + mview[2] * mview[2]).sqrt();
+
+        if mview[0] * bounds.cone_axis[0] + mview[1] * bounds.cone_axis[1] + mview[2] * bounds.cone_axis[2] >= bounds.cone_cutoff * mviewlength {
+            rejected += 1;
+        }
+
+        if mview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0) + mview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0) + mview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0) >= (bounds.cone_cutoff_s8  as f32 / 127.0) * mviewlength {
+            rejected_s8 += 1;
+        }
+		
+		// alternative formulation for perspective projection that doesn't use apex (and uses cluster bounding sphere instead):
+		// dot(normalize(center - camera_position), cone_axis) > cone_cutoff + radius / length(center - camera_position)
+        let cview: [f32; 3] = [
+            bounds.center[0] - camera[0],
+            bounds.center[1] - camera[1],
+            bounds.center[2] - camera[2],
+        ];
+
+        let cviewlength = (cview[0] * cview[0] + cview[1] * cview[1] + cview[2] * cview[2]).sqrt();
+
+        if cview[0] * bounds.cone_axis[0] + cview[1] * bounds.cone_axis[1] + cview[2] * bounds.cone_axis[2] >= bounds.cone_cutoff * cviewlength + bounds.radius {
+            rejected_alt += 1;
+        }
+
+		if cview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0) + cview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0) + cview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0) >= (bounds.cone_cutoff_s8  as f32 / 127.0) * cviewlength + bounds.radius {
+            rejected_alt_s8 += 1;
+        }
+    }
+    let test_elapsed = test_start.elapsed();
+
+    println!("ConeCull : rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
+	       rejected,
+           rejected as f64 / (meshlets.len() as f64) * 100.0,
+	       rejected_alt,
+           rejected_alt as f64 / (meshlets.len() as f64) * 100.0,
+	       accepted,
+           accepted as f64 / (meshlets.len() as f64) * 100.0,
+	       elapsed_to_ms(test_elapsed));
+	
+    println!("ConeCull8: rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
+	       rejected_s8,
+           rejected_s8 as f64 / (meshlets.len() as f64) * 100.0,
+	       rejected_alt_s8,
+           rejected_alt_s8 as f64 / (meshlets.len() as f64) * 100.0,
+	       accepted_s8,
+           accepted_s8 as f64 / (meshlets.len() as f64) * 100.0,
+           elapsed_to_ms(test_elapsed));
+}
+
 fn simplify(mesh: &Mesh) {
     let lod_count = 5;
 
@@ -653,6 +792,8 @@ fn process(path: Option<PathBuf>, export: bool) {
     }
 
     stripify(&copy);
+    meshlets(&copy);
+	shadow(&copy);
 
     encode_index(&copy);
     pack_mesh::<PackedVertex>(&copy, "");

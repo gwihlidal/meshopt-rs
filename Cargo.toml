@@ -17,6 +17,7 @@ include = [
     "build.rs",
     "Cargo.toml",
     "vendor/src/meshoptimizer.h",
+    "vendor/src/clusterizer.cpp",
     "vendor/src/indexcodec.cpp",
     "vendor/src/indexgenerator.cpp",
     "vendor/src/overdrawanalyzer.cpp",

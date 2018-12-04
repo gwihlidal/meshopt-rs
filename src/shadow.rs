@@ -1,6 +1,10 @@
 use ffi;
 use DecodePosition;
 
+/// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary.
+/// All vertices that are binary equivalent (wrt first vertex_size bytes) map to the first vertex in the original vertex buffer.
+/// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original vertex/index
+/// buffers elsewhere.
 pub fn generate_shadow_indices<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> Vec<u32> {
     let vertices = vertices
         .iter()

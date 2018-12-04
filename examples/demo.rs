@@ -492,7 +492,7 @@ fn meshlets(mesh: &Mesh) {
             rejected += 1;
         }
 
-        if mview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0) + mview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0) + mview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0) >= (bounds.cone_cutoff_s8  as f32 / 127.0) * mviewlength {
+        if mview[0] * (bounds.cone_axis_s8[0] as f32 / 127.0) + mview[1] * (bounds.cone_axis_s8[1] as f32 / 127.0) + mview[2] * (bounds.cone_axis_s8[2] as f32 / 127.0) >= (bounds.cone_cutoff_s8 as f32 / 127.0) * mviewlength {
             rejected_s8 += 1;
         }
 		

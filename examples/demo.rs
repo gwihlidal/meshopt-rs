@@ -199,7 +199,7 @@ impl Mesh {
                 buffer,
                 "f {}/{}/{} {}/{}/{} {}/{}/{}\n",
                 i0, i0, i0, i1, i1, i1, i2, i2, i2
-            );
+            ).unwrap();
         }
 
         Ok(())
@@ -576,7 +576,7 @@ fn simplify(mesh: &Mesh) {
         let threshold = 0.7f32.powf(i as f32);
         let target_index_count = (mesh.indices.len() as f32 * threshold) as usize / 3 * 3;
         let target_error = 1e-3f32;
-        let mut lod: Vec<u32>;
+        let lod: Vec<u32>;
         {
             // we can simplify all the way from base level or from the last result
             // simplifying from the base level sometimes produces better results, but simplifying from last level is faster

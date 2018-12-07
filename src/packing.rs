@@ -1,5 +1,5 @@
+use crate::{quantize_half, quantize_snorm};
 use float_cmp::ApproxEqUlps;
-use {quantize_half, quantize_snorm};
 
 pub trait DecodePosition {
     fn decode_position(&self) -> [f32; 3];

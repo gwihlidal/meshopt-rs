@@ -1,6 +1,6 @@
-use ffi;
+use crate::ffi;
+use crate::DecodePosition;
 use std::mem;
-use DecodePosition;
 
 pub type VertexCacheStatistics = ffi::meshopt_VertexCacheStatistics;
 pub type VertexFetchStatistics = ffi::meshopt_VertexFetchStatistics;

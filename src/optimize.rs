@@ -1,6 +1,6 @@
-use ffi;
+use crate::ffi;
+use crate::DecodePosition;
 use std::mem;
-use DecodePosition;
 
 /// Vertex transform cache optimizer
 /// Reorders indices to reduce the number of GPU vertex shader invocations

@@ -1,4 +1,4 @@
-use ffi;
+use crate::ffi;
 
 pub fn stripify(indices: &[u32], vertex_count: usize) -> Vec<u32> {
     let mut result: Vec<u32> = vec![0; indices.len() / 3 * 4];

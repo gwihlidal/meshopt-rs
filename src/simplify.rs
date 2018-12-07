@@ -1,6 +1,6 @@
-use ffi;
+use crate::ffi;
+use crate::DecodePosition;
 use std::mem;
-use DecodePosition;
 
 pub fn simplify<T: DecodePosition>(
     indices: &[u32],

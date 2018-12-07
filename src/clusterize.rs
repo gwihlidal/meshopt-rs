@@ -1,5 +1,5 @@
-use ffi;
-use DecodePosition;
+use crate::ffi;
+use crate::DecodePosition;
 
 pub type Bounds = ffi::meshopt_Bounds;
 pub type Meshlet = ffi::meshopt_Meshlet;
@@ -54,7 +54,7 @@ pub fn compute_cluster_bounds<T: DecodePosition>(indices: &[u32], vertices: &[T]
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
     let positions = vertices.as_ptr() as *const f32;
-    let ffi_bounds = unsafe {
+    unsafe {
         ffi::meshopt_computeClusterBounds(
             indices.as_ptr(),
             indices.len(),
@@ -62,8 +62,7 @@ pub fn compute_cluster_bounds<T: DecodePosition>(indices: &[u32], vertices: &[T]
             vertices.len() * 3,
             ::std::mem::size_of::<f32>() * 3,
         )
-    };
-    ffi_bounds
+    }
 }
 
 pub fn compute_meshlet_bounds<T: DecodePosition>(meshlet: &Meshlet, vertices: &[T]) -> Bounds {
@@ -72,7 +71,7 @@ pub fn compute_meshlet_bounds<T: DecodePosition>(meshlet: &Meshlet, vertices: &[
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
     let positions = vertices.as_ptr() as *const f32;
-    let ffi_bounds = unsafe {
+    unsafe {
         // TODO: Should change mesh optimizer take meshlet by reference
         ffi::meshopt_computeMeshletBounds(
             *meshlet,
@@ -80,6 +79,5 @@ pub fn compute_meshlet_bounds<T: DecodePosition>(meshlet: &Meshlet, vertices: &[
             vertices.len() * 3,
             ::std::mem::size_of::<f32>() * 3,
         )
-    };
-    ffi_bounds
+    }
 }

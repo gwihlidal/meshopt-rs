@@ -1,6 +1,6 @@
 [package]
 name = "meshopt"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for zeux/meshoptimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"
@@ -30,6 +30,7 @@ include = [
     "vendor/src/vfetchanalyzer.cpp",
     "vendor/src/vfetchoptimizer.cpp",
 ]
+edition = "2018"
 
 [badges]
 travis-ci = { repository = "gwihlidal/meshopt-rs" }

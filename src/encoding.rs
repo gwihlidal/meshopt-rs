@@ -1,4 +1,4 @@
-use ffi;
+use crate::ffi;
 use std::mem;
 
 pub fn encode_index_buffer(indices: &[u32], vertex_count: usize) -> Vec<u8> {

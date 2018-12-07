@@ -1,5 +1,5 @@
-use ffi;
-use DecodePosition;
+use crate::ffi;
+use crate::DecodePosition;
 
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary.
 /// All vertices that are binary equivalent (wrt first vertex_size bytes) map to the first vertex in the original vertex buffer.

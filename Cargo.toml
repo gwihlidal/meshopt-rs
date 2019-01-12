@@ -1,6 +1,6 @@
 [package]
 name = "meshopt"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for zeux/meshoptimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"

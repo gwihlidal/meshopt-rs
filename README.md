@@ -23,7 +23,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-meshopt = "0.1.3"
+meshopt = "0.1.4"
 ```
 
 and add this to your crate root:

@@ -1,5 +1,11 @@
 # Changes
 
+## 0.1.4 (2019-01-12)
+
+* Upgraded meshoptimizer library to 0.10.0
+* Upgraded crate dependencies
+* Added proper error handling and removed asserts/unwraps
+
 ## 0.1.3 (2018-12-07)
 
 * Rust 2018 Edition

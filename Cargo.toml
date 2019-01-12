@@ -53,6 +53,10 @@ miniz_oxide = "0.2.0"
 rand = "0.6.4"
 libc = "0.2.46"
 
+[dev-dependencies.gltf]
+version = "0.11.2"
+features = ["extras", "names"]
+
 [profile.release]
 lto = true
 opt-level = 3

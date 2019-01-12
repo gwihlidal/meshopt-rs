@@ -1,3 +1,4 @@
+extern crate gltf;
 extern crate meshopt;
 extern crate tobj;
 

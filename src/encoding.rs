@@ -94,14 +94,14 @@ pub struct Header {
     pub uv_offset: [f32; 2],
     pub uv_scale: [f32; 2],
 
-    pub(crate) reserved: [u32; 2],
+    pub reserved: [u32; 2],
 }
 
 pub struct Object {
     pub index_offset: u32,
     pub index_count: u32,
     pub material_length: u32,
-    pub(crate) reserved: u32,
+    pub reserved: u32,
 }
 
 pub fn calc_pos_offset_and_scale(positions: &[f32]) -> ([f32; 3], f32) {

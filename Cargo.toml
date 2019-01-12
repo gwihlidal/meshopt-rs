@@ -38,19 +38,20 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 float-cmp = "0.4.0"
+failure = "0.1.5"
 
 [build-dependencies]
-cc = { version = "1.0.25", features = ["parallel"] }
+cc = { version = "1.0.28", features = ["parallel"] }
 
 [build-dependencies.bindgen]
-version = "0.44.0"
+version = "0.46.0"
 optional = true
 
 [dev-dependencies]
 tobj = "0.1.6"
 miniz_oxide = "0.2.0"
-rand = "0.6.1"
-libc = "0.2.44"
+rand = "0.6.4"
+libc = "0.2.46"
 
 [profile.release]
 lto = true

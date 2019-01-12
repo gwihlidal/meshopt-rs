@@ -369,11 +369,11 @@ fn opt_complete(mesh: &mut Mesh) {
 
 fn stripify(mesh: &Mesh) {
     let process_start = Instant::now();
-    let strip = meshopt::stripify(&mesh.indices, mesh.vertices.len());
+    let strip = meshopt::stripify(&mesh.indices, mesh.vertices.len()).unwrap();
     let process_elapsed = process_start.elapsed();
 
     let mut copy = mesh.clone();
-    copy.indices = meshopt::unstripify(&strip);
+    copy.indices = meshopt::unstripify(&strip).unwrap();
 
     assert!(copy.is_valid());
     assert_eq!(mesh, &copy);
@@ -678,8 +678,8 @@ fn simplify(mesh: &Mesh) {
     );
 
     let packed = pack_vertices::<PackedVertexOct>(&vertices);
-    let encoded_vertices = meshopt::encode_vertex_buffer(&packed);
-    let encoded_indices = meshopt::encode_index_buffer(&indices, vertices.len());
+    let encoded_vertices = meshopt::encode_vertex_buffer(&packed).unwrap();
+    let encoded_indices = meshopt::encode_index_buffer(&indices, vertices.len()).unwrap();
 
     println!("{:9}  ACMR {:.6}...{:.6} Overfetch {:.6}..{:.6} Codec VB {:.1} bits/vertex IB {:.1} bits/triangle",
         "",
@@ -694,11 +694,11 @@ fn simplify(mesh: &Mesh) {
 
 fn encode_index(mesh: &Mesh) {
     let encode_start = Instant::now();
-    let encoded = meshopt::encode_index_buffer(&mesh.indices, mesh.vertices.len());
+    let encoded = meshopt::encode_index_buffer(&mesh.indices, mesh.vertices.len()).unwrap();
     let encode_elapsed = encode_start.elapsed();
 
     let decode_start = Instant::now();
-    let decoded = meshopt::decode_index_buffer::<u32>(&encoded, mesh.indices.len());
+    let decoded = meshopt::decode_index_buffer::<u32>(&encoded, mesh.indices.len()).unwrap();
     let decode_elapsed = decode_start.elapsed();
 
     let compressed = compress(&encoded);
@@ -717,7 +717,7 @@ fn encode_index(mesh: &Mesh) {
     }
 
     if mesh.vertices.len() <= 65536 {
-        let decoded2 = meshopt::decode_index_buffer::<u16>(&encoded, mesh.indices.len());
+        let decoded2 = meshopt::decode_index_buffer::<u16>(&encoded, mesh.indices.len()).unwrap();
         for i in (0..mesh.indices.len()).step_by(3) {
             assert!(
                 decoded[i + 0] == decoded2[i + 0] as u32
@@ -741,11 +741,11 @@ fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) 
     let packed = pack_vertices::<T>(&mesh.vertices);
 
     let encode_start = Instant::now();
-    let encoded = meshopt::encode_vertex_buffer(&packed);
+    let encoded = meshopt::encode_vertex_buffer(&packed).unwrap();
     let encode_elapsed = encode_start.elapsed();
 
     let decode_start = Instant::now();
-    let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len());
+    let decoded = meshopt::decode_vertex_buffer(&encoded, mesh.vertices.len()).unwrap();
     let decode_elapsed = decode_start.elapsed();
 
     assert!(packed == decoded);

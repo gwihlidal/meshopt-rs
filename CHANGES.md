@@ -1,5 +1,9 @@
 # Changes
 
+## 0.1.3 (2018-12-07)
+
+* Rust 2018 Edition
+  
 ## 0.1.2 (2018-12-04)
 
 * Upgraded meshoptimizer library

@@ -49,7 +49,7 @@ pub fn remap_index_buffer(indices: Option<&[u32]>, vertex_count: usize, remap: &
                 ffi::meshopt_remapIndexBuffer(
                     result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
                     ::std::ptr::null(),
-                    0,
+                    vertex_count,
                     remap.as_ptr() as *const ::std::os::raw::c_uint,
                 );
             }

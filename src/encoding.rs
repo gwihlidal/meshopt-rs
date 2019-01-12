@@ -1,4 +1,5 @@
 use crate::ffi;
+use crate::utilities::rcp_safe;
 use crate::{Error, Result};
 use std::mem;
 
@@ -80,8 +81,10 @@ pub fn decode_vertex_buffer<T: Clone + Default>(
     }
 }
 
-pub struct Header {
-    pub magic: [i8; 4], // OPTM
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct EncodeHeader {
+    pub magic: [char; 4], // OPTM
 
     pub group_count: u32,
     pub vertex_count: u32,
@@ -90,14 +93,49 @@ pub struct Header {
     pub index_data_size: u32,
 
     pub pos_offset: [f32; 3],
-    pub pos_scale: [f32; 3],
+    pub pos_scale: f32,
     pub uv_offset: [f32; 2],
     pub uv_scale: [f32; 2],
 
     pub reserved: [u32; 2],
 }
 
-pub struct Object {
+impl EncodeHeader {
+    pub fn new(
+        group_count: u32,
+        vertex_count: u32,
+        index_count: u32,
+        vertex_data_size: u32,
+        index_data_size: u32,
+        pos_offset: [f32; 3],
+        pos_scale: f32,
+        uv_offset: [f32; 2],
+        uv_scale: [f32; 2],
+        pos_bits: u32,
+        uv_bits: u32,
+    ) -> Self {
+        EncodeHeader {
+            magic: ['O', 'P', 'T', 'M'],
+            group_count,
+            vertex_count,
+            index_count,
+            vertex_data_size,
+            index_data_size,
+            pos_offset,
+            pos_scale: pos_scale / ((1 << pos_bits) - 1) as f32,
+            uv_offset,
+            uv_scale: [
+                uv_scale[0] / ((1 << uv_bits) - 1) as f32,
+                uv_scale[1] / ((1 << uv_bits) - 1) as f32,
+            ],
+            reserved: [0, 0],
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct EncodeObject {
     pub index_offset: u32,
     pub index_count: u32,
     pub material_length: u32,
@@ -123,4 +161,37 @@ pub fn calc_pos_offset_and_scale(positions: &[f32]) -> ([f32; 3], f32) {
     }
 
     (pos_offset, pos_scale)
+}
+
+pub fn calc_pos_offset_and_scale_inverse(positions: &[f32]) -> ([f32; 3], f32) {
+    let (pos_offset, pos_scale) = calc_pos_offset_and_scale(positions);
+    let pos_scale_inverse = rcp_safe(pos_scale);
+    (pos_offset, pos_scale_inverse)
+}
+
+pub fn calc_uv_offset_and_scale(coords: &[f32]) -> ([f32; 2], [f32; 2]) {
+    let mut uv_offset: [f32; 2] = [std::f32::MAX, std::f32::MAX];
+    let mut uv_scale: [f32; 2] = [0f32, 0f32];
+
+    for i in 0..(coords.len() / 2) {
+        uv_offset = [
+            uv_offset[0].min(coords[(i * 2) + 0]),
+            uv_offset[1].min(coords[(i * 2) + 1]),
+        ];
+    }
+
+    for i in 0..(coords.len() / 2) {
+        uv_scale = [
+            uv_scale[0].max(coords[(i * 2) + 0] - uv_offset[0]),
+            uv_scale[1].max(coords[(i * 2) + 1] - uv_offset[1]),
+        ];
+    }
+
+    (uv_offset, uv_scale)
+}
+
+pub fn calc_uv_offset_and_scale_inverse(coords: &[f32]) -> ([f32; 2], [f32; 2]) {
+    let (uv_offset, uv_scale) = calc_uv_offset_and_scale(coords);
+    let uv_scale_inverse = [rcp_safe(uv_scale[0]), rcp_safe(uv_scale[1])];
+    (uv_offset, uv_scale_inverse)
 }

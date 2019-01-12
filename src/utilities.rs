@@ -1,3 +1,5 @@
+use crate::{Error, Result};
+
 #[inline(always)]
 pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     unsafe {
@@ -15,24 +17,26 @@ pub fn typed_to_bytes<T>(typed: &[T]) -> &[u8] {
     }
 }
 
-pub fn convert_indices_32_to_16(indices: &[u32]) -> Vec<u16> {
+pub fn convert_indices_32_to_16(indices: &[u32]) -> Result<Vec<u16>> {
     let mut result: Vec<u16> = Vec::with_capacity(indices.len());
     for index in indices {
-        assert!(*index <= 65536);
+        if *index > 65536 {
+            return Err(Error::memory(
+                "index value must be <= 65536 when converting to 16-bit",
+            ));
+        }
         result.push(*index as u16);
     }
-    result
+    Ok(result)
 }
 
-pub fn convert_indices_16_to_32(indices: &[u16]) -> Vec<u32> {
+pub fn convert_indices_16_to_32(indices: &[u16]) -> Result<Vec<u32>> {
     let mut result: Vec<u32> = Vec::with_capacity(indices.len());
     for index in indices {
         result.push(u32::from(*index));
     }
-    result
+    Ok(result)
 }
-
-// GW-TODO: Consider switching to https://github.com/starkat99/half-rs
 
 /// Quantize a float in [0..1] range into an N-bit fixed point unorm value
 /// Assumes reconstruction function (q / (2^N-1)), which is the case for fixed-function normalized fixed point conversion

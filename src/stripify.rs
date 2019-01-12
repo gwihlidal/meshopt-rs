@@ -1,6 +1,6 @@
-use crate::ffi;
+use crate::{ffi, Error, Result};
 
-pub fn stripify(indices: &[u32], vertex_count: usize) -> Vec<u32> {
+pub fn stripify(indices: &[u32], vertex_count: usize) -> Result<Vec<u32>> {
     let mut result: Vec<u32> = vec![0; indices.len() / 3 * 4];
     let index_count = unsafe {
         ffi::meshopt_stripify(
@@ -10,14 +10,17 @@ pub fn stripify(indices: &[u32], vertex_count: usize) -> Vec<u32> {
             vertex_count,
         )
     };
-    assert!(index_count <= result.len());
-    result.resize(index_count, 0u32);
-    result
+    if index_count <= result.len() {
+        result.resize(index_count, 0u32);
+        Ok(result)
+    } else {
+        Err(Error::memory("index count is larger than result"))
+    }
 }
 
 /// Mesh unstripifier
 /// Converts a triangle strip to a triangle list
-pub fn unstripify(indices: &[u32]) -> Vec<u32> {
+pub fn unstripify(indices: &[u32]) -> Result<Vec<u32>> {
     let mut result: Vec<u32> = vec![0; (indices.len() - 2) * 3];
     let index_count = unsafe {
         ffi::meshopt_unstripify(
@@ -26,7 +29,10 @@ pub fn unstripify(indices: &[u32]) -> Vec<u32> {
             indices.len(),
         )
     };
-    assert!(index_count <= result.len());
-    result.resize(index_count, 0u32);
-    result
+    if index_count <= result.len() {
+        result.resize(index_count, 0u32);
+        Ok(result)
+    } else {
+        Err(Error::memory("index count is larger than result"))
+    }
 }

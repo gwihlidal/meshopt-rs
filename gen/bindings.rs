@@ -361,6 +361,11 @@ pub struct meshopt_Meshlet {
     pub triangle_count: ::std::os::raw::c_uchar,
     pub vertex_count: ::std::os::raw::c_uchar,
 }
+impl ::std::fmt::Debug for meshopt_Meshlet {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write ! ( f , "meshopt_Meshlet {{ vertices: [{}], indices: [{}], triangle_count: {:?}, vertex_count: {:?} }}" , self . vertices . iter ( ) . enumerate ( ) . map ( | ( i , v ) | format ! ( "{}{:?}" , if i > 0 { ", " } else { "" } , v ) ) . collect :: < String > ( ) , self . indices . iter ( ) . enumerate ( ) . map ( | ( i , v ) | format ! ( "{}{:?}" , if i > 0 { ", " } else { "" } , v ) ) . collect :: < String > ( ) , self . triangle_count , self . vertex_count )
+    }
+}
 extern "C" {
     #[doc = " Experimental: Meshlet builder"]
     #[doc = " Splits the mesh into a set of meshlets where each meshlet has a micro index buffer indexing into meshlet vertices that refer to the original vertex buffer"]

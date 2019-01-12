@@ -50,6 +50,8 @@ fn generate_bindings(output_file: &str) {
     let bindings = bindgen::Builder::default()
         .header("vendor/src/meshoptimizer.h")
         .rustfmt_bindings(true)
+        .derive_debug(true)
+        .impl_debug(true)
         .blacklist_type("__darwin_.*")
         .whitelist_function("meshopt.*")
         .trust_clang_mangling(false)

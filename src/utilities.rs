@@ -118,3 +118,12 @@ pub fn quantize_float(v: f32, n: i32) -> f32 {
     u.ui = ui;
     unsafe { u.fl }
 }
+
+#[inline(always)]
+fn rcp_safe(v: f32) -> f32 {
+    if v.abs() as u32 == 0 {
+        0f32
+    } else {
+        1f32 / v
+    }
+}

@@ -79,3 +79,48 @@ pub fn decode_vertex_buffer<T: Clone + Default>(
         _ => Err(Error::native(result_code)),
     }
 }
+
+pub struct Header {
+    pub magic: [i8; 4], // OPTM
+
+    pub group_count: u32,
+    pub vertex_count: u32,
+    pub index_count: u32,
+    pub vertex_data_size: u32,
+    pub index_data_size: u32,
+
+    pub pos_offset: [f32; 3],
+    pub pos_scale: [f32; 3],
+    pub uv_offset: [f32; 2],
+    pub uv_scale: [f32; 2],
+
+    pub(crate) reserved: [u32; 2],
+}
+
+pub struct Object {
+    pub index_offset: u32,
+    pub index_count: u32,
+    pub material_length: u32,
+    pub(crate) reserved: u32,
+}
+
+pub fn calc_pos_offset_and_scale(positions: &[f32]) -> ([f32; 3], f32) {
+    let mut pos_offset: [f32; 3] = [std::f32::MAX, std::f32::MAX, std::f32::MAX];
+    let mut pos_scale = 0f32;
+
+    for i in 0..(positions.len() / 3) {
+        pos_offset = [
+            pos_offset[0].min(positions[(i * 3) + 0]),
+            pos_offset[1].min(positions[(i * 3) + 1]),
+            pos_offset[2].min(positions[(i * 3) + 2]),
+        ];
+    }
+
+    for i in 0..(positions.len() / 3) {
+        pos_scale = pos_scale.max(positions[(i * 3) + 0] - pos_offset[0]);
+        pos_scale = pos_scale.max(positions[(i * 3) + 1] - pos_offset[1]);
+        pos_scale = pos_scale.max(positions[(i * 3) + 2] - pos_offset[2]);
+    }
+
+    (pos_offset, pos_scale)
+}

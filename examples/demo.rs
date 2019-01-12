@@ -87,7 +87,7 @@ impl Mesh {
     fn load_obj(path: &Path) -> Self {
         let obj = tobj::load_obj(path);
         assert!(obj.is_ok());
-        let (models, _) = obj.unwrap();
+        let (models, _materials) = obj.unwrap();
 
         assert!(models.len() == 1);
 

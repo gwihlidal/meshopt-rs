@@ -12,8 +12,13 @@ pub trait FromVertex {
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub struct PackedVertex {
+    /// Unsigned 16-bit value, use pos_offset/pos_scale to unpack
     pub p: [u16; 4],
-    pub n: [u8; 4],
+
+    /// Normalized signed 8-bit value
+    pub n: [i8; 4],
+
+    /// Unsigned 16-bit value, use uv_offset/uv_scale to unpack
     pub t: [u16; 2],
 }
 
@@ -24,10 +29,10 @@ impl FromVertex for PackedVertex {
         self.p[2] = quantize_half(vertex.p[2]) as u16;
         self.p[3] = 0u16;
 
-        self.n[0] = quantize_snorm(vertex.n[0], 8) as u8;
-        self.n[1] = quantize_snorm(vertex.n[1], 8) as u8;
-        self.n[2] = quantize_snorm(vertex.n[2], 8) as u8;
-        self.n[3] = 0u8;
+        self.n[0] = quantize_snorm(vertex.n[0], 8) as i8;
+        self.n[1] = quantize_snorm(vertex.n[1], 8) as i8;
+        self.n[2] = quantize_snorm(vertex.n[2], 8) as i8;
+        self.n[3] = 0i8;
 
         self.t[0] = quantize_half(vertex.t[0]) as u16;
         self.t[1] = quantize_half(vertex.t[1]) as u16;

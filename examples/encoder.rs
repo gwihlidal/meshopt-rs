@@ -18,8 +18,11 @@ struct Object {
 }
 
 fn main() {
-    //let obj = tobj::load_obj(Path::new("examples/pirate_opt.obj"));
-    let obj = tobj::load_obj(Path::new("examples/multi.obj"));
+    //let mesh = "pirate";
+    let mesh = "pirate_opt";
+    //let mesh = "multi";
+
+    let obj = tobj::load_obj(Path::new(&format!("examples/{}.obj", mesh)));
     assert!(obj.is_ok());
     let (models, _materials) = obj.unwrap();
 
@@ -144,8 +147,7 @@ fn main() {
         uv_bits as u32,
     );
 
-    let mut output = File::create("examples/multi.optmesh").unwrap();
-    //let mut output = File::create("examples/pirate_opt.optmesh").unwrap();
+    let mut output = File::create(Path::new(&format!("examples/{}.optmesh", mesh))).unwrap();
 
     output.write(any_as_u8_slice(&header)).unwrap();
 

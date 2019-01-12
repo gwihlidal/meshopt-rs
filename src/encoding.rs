@@ -84,7 +84,7 @@ pub fn decode_vertex_buffer<T: Clone + Default>(
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct EncodeHeader {
-    pub magic: [char; 4], // OPTM
+    pub magic: [u8; 4], // OPTM
 
     pub group_count: u32,
     pub vertex_count: u32,
@@ -115,7 +115,7 @@ impl EncodeHeader {
         uv_bits: u32,
     ) -> Self {
         EncodeHeader {
-            magic: ['O', 'P', 'T', 'M'],
+            magic: ['O' as u8, 'P' as u8, 'T' as u8, 'M' as u8],
             group_count,
             vertex_count,
             index_count,

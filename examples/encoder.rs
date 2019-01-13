@@ -1,6 +1,8 @@
 extern crate gltf;
 extern crate meshopt;
 extern crate tobj;
+//#[macro_use]
+extern crate structopt;
 
 use meshopt::any_as_u8_slice;
 use meshopt::{quantize_snorm, quantize_unorm};
@@ -9,7 +11,20 @@ use meshopt::{PackedVertex, Vertex};
 
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "meshencoder")]
+struct Options {
+    /// Input file
+    #[structopt(short = "i", long = "input", parse(from_os_str))]
+    input: PathBuf,
+
+    /// Output file
+    #[structopt(short = "o", long = "output", parse(from_os_str))]
+    output: PathBuf,
+}
 
 struct Object {
     material: String,
@@ -18,13 +33,11 @@ struct Object {
 }
 
 fn main() {
-    //let mesh = "pirate";
-    let mesh = "pirate_opt";
-    //let mesh = "multi";
+    let options = Options::from_args();
 
-    let obj = tobj::load_obj(Path::new(&format!("examples/{}.obj", mesh)));
-    assert!(obj.is_ok());
-    let (models, _materials) = obj.unwrap();
+    let obj_file = tobj::load_obj(&options.input);
+    assert!(obj_file.is_ok());
+    let (models, _materials) = obj_file.unwrap();
 
     let mut merged_positions: Vec<f32> = Vec::new();
     let mut merged_coords: Vec<f32> = Vec::new();
@@ -171,7 +184,7 @@ fn main() {
         uv_bits as u32,
     );
 
-    let mut output = File::create(Path::new(&format!("examples/{}.optmesh", mesh))).unwrap();
+    let mut output = File::create(&options.output).unwrap();
 
     output.write(any_as_u8_slice(&header)).unwrap();
 

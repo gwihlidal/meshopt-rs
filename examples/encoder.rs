@@ -26,6 +26,7 @@ struct Options {
     output: PathBuf,
 }
 
+#[derive(Debug)]
 struct Object {
     material: String,
     index_offset: usize,
@@ -200,7 +201,11 @@ fn main() {
 
     for object in &objects {
         output.write(object.material.as_bytes()).unwrap();
+        println!("{:?}", &object);
     }
+
+    println!("encoded vbuf\n{:?}", encoded_vertices);
+    println!("encoded ibuf\n{:?}", encoded_indices);
 
     output.write(&encoded_vertices).unwrap();
     output.write(&encoded_indices).unwrap();

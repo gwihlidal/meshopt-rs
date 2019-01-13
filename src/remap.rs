@@ -1,6 +1,12 @@
 use crate::ffi;
+use crate::VertexStream;
 use std::mem;
 
+/// Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices
+/// As a result, all vertices that are binary equivalent map to the same (new) location, with no gaps in the resulting sequence.
+/// Resulting remap table maps old vertices to new vertices and can be used in `remap_vertex_buffer`/`remap_index_buffer`.
+///
+/// The `indices` can be `None` if the input is unindexed.
 pub fn generate_vertex_remap<T>(vertices: &[T], indices: Option<&[u32]>) -> (usize, Vec<u32>) {
     let remap: Vec<u32> = vec![0; vertices.len()];
     let vertex_count = unsafe {
@@ -20,6 +26,45 @@ pub fn generate_vertex_remap<T>(vertices: &[T], indices: Option<&[u32]>) -> (usi
                 vertices.as_ptr() as *const ::std::os::raw::c_void,
                 vertices.len(),
                 mem::size_of::<T>(),
+            ),
+        }
+    };
+    (vertex_count, remap)
+}
+
+/// Experimental: Generates a vertex remap table from multiple vertex streams and an optional index buffer and returns number of unique vertices
+/// As a result, all vertices that are binary equivalent map to the same (new) location, with no gaps in the resulting sequence.
+/// Resulting remap table maps old vertices to new vertices and can be used in `remap_vertex_buffer`/`remap_index_buffer`.
+///
+/// To remap vertex buffers, you will need to call `remap_vertex_buffer` for each vertex stream.
+///
+/// The `indices` can be `None` if the input is unindexed.
+pub fn generate_vertex_remap_multi<T>(vertex_count: usize, streams: &[VertexStream], indices: Option<&[u32]>) -> (usize, Vec<u32>) {
+    let streams: Vec<ffi::meshopt_Stream> = streams.iter().map(|stream| {
+        ffi::meshopt_Stream {
+            data: stream.data.as_ptr() as *const ::std::ffi::c_void,
+            size: stream.data.len(),
+            stride: stream.stride,
+        }
+    }).collect();
+    let remap: Vec<u32> = vec![0; vertex_count];
+    let vertex_count = unsafe {
+        match indices {
+            Some(indices) => ffi::meshopt_generateVertexRemapMulti(
+                remap.as_ptr() as *mut ::std::os::raw::c_uint,
+                indices.as_ptr() as *const ::std::os::raw::c_uint,
+                indices.len(),
+                vertex_count,
+                streams.as_ptr(),
+                streams.len(),
+            ),
+            None => ffi::meshopt_generateVertexRemapMulti(
+                remap.as_ptr() as *mut ::std::os::raw::c_uint,
+                ::std::ptr::null(),
+                vertex_count,
+                vertex_count,
+                streams.as_ptr(),
+                streams.len(),
             ),
         }
     };

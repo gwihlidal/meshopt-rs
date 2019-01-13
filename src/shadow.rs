@@ -39,7 +39,6 @@ pub fn generate_shadow_indices_multi(indices: &[u32], vertex_count: usize, strea
             stride: stream.stride,
         }
     }).collect();
-    //let positions = vertices.as_ptr() as *const ::std::ffi::c_void;
     let mut shadow_indices: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_generateShadowIndexBufferMulti(

@@ -8,7 +8,9 @@
 * Derived and implemented debug in generated bindings (where possible).
 * Implemented mesh encoder command line tool (matches format for meshoptimizer's wasm viewer/loader).
 * Implemented support for multiple vertex attribute streams.
-
+* Implemented generate_shadow_indices_multi
+* Implemented generate_vertex_remap_multi
+* Passed in vertex count to remap_vertex_buffer (needed for correctly resizing result).
 * Added more documentation (and some fixes)
 
 ## 0.1.3 (2018-12-07)

@@ -25,3 +25,10 @@ pub use crate::shadow::*;
 pub use crate::simplify::*;
 pub use crate::stripify::*;
 pub use crate::utilities::*;
+
+/// Vertex attribute stream
+#[derive(Debug, Copy, Clone)]
+pub struct VertexStream<'a> {
+    pub data: &'a [u8],
+    pub stride: usize,
+}

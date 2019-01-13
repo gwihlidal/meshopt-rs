@@ -115,7 +115,7 @@ impl EncodeHeader {
         uv_bits: u32,
     ) -> Self {
         EncodeHeader {
-            magic: ['O' as u8, 'P' as u8, 'T' as u8, 'M' as u8],
+            magic: *b"OPTM",
             group_count,
             vertex_count,
             index_count,
@@ -143,22 +143,24 @@ pub struct EncodeObject {
 }
 
 pub fn calc_pos_offset_and_scale(positions: &[f32]) -> ([f32; 3], f32) {
-    let mut pos_offset: [f32; 3] = [std::f32::MAX, std::f32::MAX, std::f32::MAX];
-    let mut pos_scale = 0f32;
+    use std::f32::MAX;
 
-    for i in 0..(positions.len() / 3) {
-        pos_offset = [
-            pos_offset[0].min(positions[(i * 3) + 0]),
-            pos_offset[1].min(positions[(i * 3) + 1]),
-            pos_offset[2].min(positions[(i * 3) + 2]),
-        ];
-    }
+    let pos_offset = positions
+        .chunks(3)
+        .fold([MAX, MAX, MAX], |result, position| {
+            [
+                result[0].min(position[0]),
+                result[1].min(position[1]),
+                result[2].min(position[2]),
+            ]
+        });
 
-    for i in 0..(positions.len() / 3) {
-        pos_scale = pos_scale.max(positions[(i * 3) + 0] - pos_offset[0]);
-        pos_scale = pos_scale.max(positions[(i * 3) + 1] - pos_offset[1]);
-        pos_scale = pos_scale.max(positions[(i * 3) + 2] - pos_offset[2]);
-    }
+    let pos_scale = positions.chunks(3).fold(0f32, |result, position| {
+        result
+            .max(position[0] - pos_offset[0])
+            .max(position[1] - pos_offset[1])
+            .max(position[2] - pos_offset[2])
+    });
 
     (pos_offset, pos_scale)
 }
@@ -170,22 +172,18 @@ pub fn calc_pos_offset_and_scale_inverse(positions: &[f32]) -> ([f32; 3], f32) {
 }
 
 pub fn calc_uv_offset_and_scale(coords: &[f32]) -> ([f32; 2], [f32; 2]) {
-    let mut uv_offset: [f32; 2] = [std::f32::MAX, std::f32::MAX];
-    let mut uv_scale: [f32; 2] = [0f32, 0f32];
+    use std::f32::MAX;
 
-    for i in 0..(coords.len() / 2) {
-        uv_offset = [
-            uv_offset[0].min(coords[(i * 2) + 0]),
-            uv_offset[1].min(coords[(i * 2) + 1]),
-        ];
-    }
+    let uv_offset = coords.chunks(2).fold([MAX, MAX], |result, coord| {
+        [result[0].min(coord[0]), result[1].min(coord[1])]
+    });
 
-    for i in 0..(coords.len() / 2) {
-        uv_scale = [
-            uv_scale[0].max(coords[(i * 2) + 0] - uv_offset[0]),
-            uv_scale[1].max(coords[(i * 2) + 1] - uv_offset[1]),
-        ];
-    }
+    let uv_scale = coords.chunks(2).fold([MAX, MAX], |result, coord| {
+        [
+            result[0].max(coord[0] - uv_offset[0]),
+            result[1].max(coord[1] - uv_offset[1]),
+        ]
+    });
 
     (uv_offset, uv_scale)
 }

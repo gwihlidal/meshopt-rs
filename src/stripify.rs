@@ -2,7 +2,7 @@ use crate::{ffi, Error, Result};
 
 /// Converts a previously vertex cache optimized triangle list to triangle
 /// strip, stitching strips using restart index.
-/// 
+///
 /// For maximum efficiency the index buffer being converted has to be
 /// optimized for vertex cache first.
 pub fn stripify(indices: &[u32], vertex_count: usize) -> Result<Vec<u32>> {

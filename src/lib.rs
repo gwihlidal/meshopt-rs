@@ -27,7 +27,7 @@ pub use crate::stripify::*;
 pub use crate::utilities::*;
 
 /// Vertex attribute stream, similar to glVertexPointer
-/// 
+///
 /// Each element takes size bytes, with stride controlling
 /// the spacing between successive elements.
 #[derive(Debug, Copy, Clone)]

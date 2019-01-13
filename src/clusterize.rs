@@ -6,13 +6,13 @@ pub type Meshlet = ffi::meshopt_Meshlet;
 
 /// Splits the mesh into a set of meshlets where each meshlet has a micro index buffer
 /// indexing into meshlet vertices that refer to the original vertex buffer.
-/// 
+///
 /// The resulting data can be used to render meshes using NVidia programmable mesh shading
 /// pipeline, or in other cluster-based renderers.
-/// 
+///
 /// For maximum efficiency the index buffer being converted has to be optimized for vertex
 /// cache first.
-/// 
+///
 /// Note: `max_vertices` must be <= 64 and `max_triangles` must be <= 126
 pub fn build_meshlets(
     indices: &[u32],
@@ -47,7 +47,7 @@ pub fn build_meshlets(
 ///
 /// Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:
 ///   `dot(normalize(center - camera_position), cone_axis) >= cone_cutoff + radius / length(center - camera_position)`
-/// 
+///
 /// or an equivalent formula that doesn't have a singularity at center = camera_position:
 ///   `dot(center - camera_position, cone_axis) >= cone_cutoff * length(center - camera_position) + radius`
 ///

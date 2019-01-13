@@ -39,10 +39,10 @@ pub fn convert_indices_16_to_32(indices: &[u16]) -> Result<Vec<u32>> {
 }
 
 /// Quantize a float in [0..1] range into an N-bit fixed point unorm value.
-/// 
+///
 /// Assumes reconstruction function (q / (2^N-1)), which is the case for
 /// fixed-function normalized fixed point conversion.
-/// 
+///
 /// Maximum reconstruction error: 1/2^(N+1).
 #[inline(always)]
 pub fn quantize_unorm(v: f32, n: i32) -> i32 {
@@ -53,10 +53,10 @@ pub fn quantize_unorm(v: f32, n: i32) -> i32 {
 }
 
 /// Quantize a float in [-1..1] range into an N-bit fixed point snorm value.
-/// 
+///
 /// Assumes reconstruction function (q / (2^(N-1)-1)), which is the case for
 /// fixed-function normalized fixed point conversion (except early OpenGL versions).
-/// 
+///
 /// Maximum reconstruction error: 1/2^N.
 #[inline(always)]
 pub fn quantize_snorm(v: f32, n: u32) -> i32 {

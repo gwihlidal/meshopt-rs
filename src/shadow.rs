@@ -5,7 +5,7 @@ use crate::VertexStream;
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
 /// attributes is necessary. All vertices that are binary equivalent (wrt first vertex_size bytes) map to
 /// the first vertex in the original vertex buffer.
-/// 
+///
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
 /// the original index buffer for regular rendering.
 pub fn generate_shadow_indices<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> Vec<u32> {
@@ -32,17 +32,22 @@ pub fn generate_shadow_indices<T: DecodePosition>(indices: &[u32], vertices: &[T
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
 /// attributes is necessary. All vertices that are binary equivalent (wrt specified streams) map to the
 /// first vertex in the original vertex buffer.
-/// 
+///
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
 /// the original index buffer for regular rendering.
-pub fn generate_shadow_indices_multi(indices: &[u32], vertex_count: usize, streams: &[VertexStream]) -> Vec<u32> {
-    let streams: Vec<ffi::meshopt_Stream> = streams.iter().map(|stream| {
-        ffi::meshopt_Stream {
+pub fn generate_shadow_indices_multi(
+    indices: &[u32],
+    vertex_count: usize,
+    streams: &[VertexStream],
+) -> Vec<u32> {
+    let streams: Vec<ffi::meshopt_Stream> = streams
+        .iter()
+        .map(|stream| ffi::meshopt_Stream {
             data: stream.data.as_ptr() as *const ::std::ffi::c_void,
             size: stream.data.len(),
             stride: stream.stride,
-        }
-    }).collect();
+        })
+        .collect();
     let mut shadow_indices: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_generateShadowIndexBufferMulti(

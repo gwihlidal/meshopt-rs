@@ -5,7 +5,7 @@ use std::mem;
 
 /// Encodes index data into an array of bytes that is generally much smaller (<1.5 bytes/triangle)
 /// and compresses better (<1 bytes/triangle) compared to original.
-/// 
+///
 /// For maximum efficiency the index buffer being encoded has to be optimized for vertex cache and
 /// vertex fetch first.
 pub fn encode_index_buffer(indices: &[u32], vertex_count: usize) -> Result<Vec<u8>> {
@@ -54,7 +54,7 @@ pub fn decode_index_buffer<T: Clone + Default>(
 
 /// Encodes vertex data into an array of bytes that is generally smaller and compresses better
 /// compared to original.
-/// 
+///
 /// This function works for a single vertex stream; for multiple vertex streams,
 /// call `encode_vertex_buffer` for each stream.
 pub fn encode_vertex_buffer<T>(vertices: &[T]) -> Result<Vec<u8>> {

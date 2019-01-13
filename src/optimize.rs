@@ -3,7 +3,7 @@ use crate::DecodePosition;
 use std::mem;
 
 /// Reorders indices to reduce the number of GPU vertex shader invocations.
-/// 
+///
 /// If index buffer contains multiple ranges for multiple draw calls,
 /// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
@@ -20,7 +20,7 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
 }
 
 /// Reorders indices to reduce the number of GPU vertex shader invocations.
-/// 
+///
 /// If index buffer contains multiple ranges for multiple draw calls,
 /// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) {
@@ -37,10 +37,10 @@ pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) 
 /// Vertex transform cache optimizer for FIFO caches.
 ///
 /// Reorders indices to reduce the number of GPU vertex shader invocations.
-/// 
+///
 /// Generally takes ~3x less time to optimize meshes but produces inferior
 /// results compared to `optimize_vertex_cache`.
-/// 
+///
 /// If index buffer contains multiple ranges for multiple draw calls,
 /// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache_fifo(
@@ -64,10 +64,10 @@ pub fn optimize_vertex_cache_fifo(
 /// Vertex transform cache optimizer for FIFO caches (in place).
 ///
 /// Reorders indices to reduce the number of GPU vertex shader invocations.
-/// 
+///
 /// Generally takes ~3x less time to optimize meshes but produces inferior
 /// results compared to `optimize_vertex_cache_fifo_in_place`.
-/// 
+///
 /// If index buffer contains multiple ranges for multiple draw calls,
 /// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache_fifo_in_place(
@@ -88,7 +88,7 @@ pub fn optimize_vertex_cache_fifo_in_place(
 
 /// Reorders vertices and changes indices to reduce the amount of GPU
 /// memory fetches during vertex processing.
-/// 
+///
 /// This functions works for a single vertex stream; for multiple vertex streams,
 /// use `optimize_vertex_fetch_remap` + `remap_vertex_buffer` for each stream.
 ///
@@ -112,7 +112,7 @@ pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: 
 /// Vertex fetch cache optimizer (modifies in place)
 /// Reorders vertices and changes indices to reduce the amount of GPU
 /// memory fetches during vertex processing.
-/// 
+///
 /// This functions works for a single vertex stream; for multiple vertex streams,
 /// use `optimize_vertex_fetch_remap` + `remap_vertex_buffer` for each stream.
 ///
@@ -132,7 +132,7 @@ pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]
 
 /// Generates vertex remap to reduce the amount of GPU memory fetches during
 /// vertex processing.
-/// 
+///
 /// The resulting remap table should be used to reorder vertex/index buffers
 /// using `optimize_remap_vertex_buffer`/`optimize_remap_index_buffer`.
 pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<u32> {
@@ -154,7 +154,7 @@ pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<
 ///
 /// `indices` must contain index data that is the result of `optimize_vertex_cache`
 /// (*not* the original mesh indices!)
-/// 
+///
 /// `threshold` indicates how much the overdraw optimizer can degrade vertex cache
 /// efficiency (1.05 = up to 5%) to reduce overdraw more efficiently.
 pub fn optimize_overdraw_in_place<T: DecodePosition>(

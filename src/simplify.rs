@@ -5,7 +5,7 @@ use std::mem;
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh
 /// appearance as much as possible. The resulting index buffer references vertices
 /// from the original vertex buffer.
-/// 
+///
 /// If the original vertex data isn't required, creating a compact vertex buffer
 /// using `optimize_vertex_fetch` is recommended.
 pub fn simplify<T: DecodePosition>(

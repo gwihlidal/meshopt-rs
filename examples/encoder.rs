@@ -27,6 +27,7 @@ fn main() {
     let (models, _materials) = obj.unwrap();
 
     let mut merged_positions: Vec<f32> = Vec::new();
+    let mut merged_coords: Vec<f32> = Vec::new();
     let mut merged_vertices: Vec<Vertex> = Vec::new();
     let mut merged_indices: Vec<u32> = Vec::new();
     let mut objects: Vec<Object> = Vec::new();
@@ -73,6 +74,9 @@ fn main() {
                 [0f32, 0f32]
             };
 
+            merged_coords.push(t[0]);
+            merged_coords.push(t[1]);
+
             vertices.push(Vertex { p, n, t });
             merged_indices.push((vertex_start + index) as u32);
         }
@@ -80,7 +84,7 @@ fn main() {
         merged_vertices.append(&mut vertices);
 
         objects.push(Object {
-            material: String::from("MAT_HERE"),
+            material: String::from(""),
             index_offset: index_start,
             index_count: mesh.indices.len(),
         });
@@ -90,7 +94,10 @@ fn main() {
     let uv_bits = 12;
 
     let (pos_offset, pos_scale_inv) = meshopt::calc_pos_offset_and_scale_inverse(&merged_positions);
-    let (uv_offset, uv_scale_inv) = meshopt::calc_uv_offset_and_scale_inverse(&merged_positions);
+    let (uv_offset, uv_scale_inv) = meshopt::calc_uv_offset_and_scale_inverse(&merged_coords);
+
+    println!("pos_offset: {}, {}, {} pos_scale_inv: {}", pos_offset[0], pos_offset[1], pos_offset[2], pos_scale_inv);
+    println!("uv_offset: {}, {} uv_scale_inv: {}, {}", uv_offset[0], uv_offset[1], uv_scale_inv[0], uv_scale_inv[1]);
 
     let quantized_vertices: Vec<PackedVertex> = merged_vertices
         .iter()
@@ -106,19 +113,36 @@ fn main() {
             let t_0 = quantize_unorm((v.t[0] - uv_offset[0]) * uv_scale_inv[0], uv_bits) as u16;
             let t_1 = quantize_unorm((v.t[1] - uv_offset[1]) * uv_scale_inv[1], uv_bits) as u16;
 
-            PackedVertex {
+            let v = PackedVertex {
                 p: [p_0, p_1, p_2, 0],
                 n: [n_0, n_1, n_2, 0],
                 t: [t_0, t_1],
-            }
+            };
+
+            println!("p[{}, {}, {}, {}], n[{}, {}, {}, {}], t[{}, {}]", v.p[0], v.p[1], v.p[2], v.p[3], v.n[0], v.n[1], v.n[2], v.n[3], v.t[0], v.t[1]);
+
+            v
         })
         .collect();
 
     let (_, vertex_remap) = meshopt::generate_vertex_remap(&quantized_vertices, None);
 
+    for remap in &vertex_remap {
+        println!("remap: {}", remap);
+    }
+
     let mut remapped_indices =
         meshopt::remap_index_buffer(None, merged_indices.len(), &vertex_remap);
+
+    for index in &remapped_indices {
+        println!("indices: {}", index);
+    }
+
     let mut remapped_vertices = meshopt::remap_vertex_buffer(&quantized_vertices, &vertex_remap);
+
+    for v in &remapped_vertices {
+        println!("p[{}, {}, {}, {}], n[{}, {}, {}, {}], t[{}, {}]", v.p[0], v.p[1], v.p[2], v.p[3], v.n[0], v.n[1], v.n[2], v.n[3], v.t[0], v.t[1]);
+    }
 
     for object in &objects {
         meshopt::optimize_vertex_cache_in_place(

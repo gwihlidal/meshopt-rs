@@ -34,10 +34,23 @@ extern crate meshopt;
 
 ## Example
 
-Currently there is only a single monolithic `demo` example, which runs nearly the entire feature matrix. In the near future I will make a straight forward `tool` example that shows the minimal calls to perform mesh optimization in a typical game engine pipeline. In `demo`, the `opt_complete` routine is the approach to get 100% optimal GPU performance. Further CPU improvements can be chosen through the various packing and encoding routines.
+### demo
+
+This is a single monolithic `demo` example, which runs nearly the entire feature matrix. In `demo`, the `opt_complete` routine is the approach to get 100% optimal GPU performance. Further CPU improvements can be chosen through the various packing and encoding routines.
 
 ```shell
 cargo run --release --example demo
+```
+
+### encoder
+
+The `encoder` example shows the minimal calls to perform mesh optimization in a typical game engine pipeline, and serializes the mesh into a format that is compatible with the WebAssembly loader and THREE.js viewer experiment that exists in the `meshoptimizer` repository.
+
+* https://github.com/zeux/meshoptimizer/blob/master/tools/OptMeshLoader.js
+* https://github.com/zeux/meshoptimizer/blob/master/demo/index.html
+
+```shell
+cargo run --release --example encoder -- --input pirate.obj --output pirate.optmesh
 ```
 
 ## Pipeline

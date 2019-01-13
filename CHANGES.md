@@ -1,5 +1,9 @@
 # Changes
 
+## 0.1.5 (2019-01-14)
+
+* Fixed demo example
+
 ## 0.1.4 (2019-01-12)
 
 * Upgraded meshoptimizer library to 0.10.0.

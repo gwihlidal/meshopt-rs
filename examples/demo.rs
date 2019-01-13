@@ -351,7 +351,7 @@ fn opt_fetch(mesh: &mut Mesh) {
 fn opt_fetch_remap(mesh: &mut Mesh) {
     let remap = meshopt::optimize_vertex_fetch_remap(&mesh.indices, mesh.vertices.len());
     mesh.indices = meshopt::remap_index_buffer(Some(&mesh.indices), mesh.indices.len(), &remap);
-    mesh.vertices = meshopt::remap_vertex_buffer(&mesh.vertices, &remap);
+    mesh.vertices = meshopt::remap_vertex_buffer(&mesh.vertices, mesh.vertices.len(), &remap);
 }
 
 fn opt_complete(mesh: &mut Mesh) {

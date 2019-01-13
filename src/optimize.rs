@@ -2,8 +2,10 @@ use crate::ffi;
 use crate::DecodePosition;
 use std::mem;
 
-/// Vertex transform cache optimizer
-/// Reorders indices to reduce the number of GPU vertex shader invocations
+/// Reorders indices to reduce the number of GPU vertex shader invocations.
+/// 
+/// If index buffer contains multiple ranges for multiple draw calls,
+/// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
     let mut optimized: Vec<u32> = vec![0; indices.len()];
     unsafe {
@@ -17,8 +19,10 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
     optimized
 }
 
-/// Vertex transform cache optimizer
-/// Reorders indices to reduce the number of GPU vertex shader invocations
+/// Reorders indices to reduce the number of GPU vertex shader invocations.
+/// 
+/// If index buffer contains multiple ranges for multiple draw calls,
+/// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) {
     unsafe {
         ffi::meshopt_optimizeVertexCache(
@@ -30,6 +34,15 @@ pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) 
     }
 }
 
+/// Vertex transform cache optimizer for FIFO caches.
+///
+/// Reorders indices to reduce the number of GPU vertex shader invocations.
+/// 
+/// Generally takes ~3x less time to optimize meshes but produces inferior
+/// results compared to `optimize_vertex_cache`.
+/// 
+/// If index buffer contains multiple ranges for multiple draw calls,
+/// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache_fifo(
     indices: &[u32],
     vertex_count: usize,
@@ -48,6 +61,15 @@ pub fn optimize_vertex_cache_fifo(
     optimized
 }
 
+/// Vertex transform cache optimizer for FIFO caches (in place).
+///
+/// Reorders indices to reduce the number of GPU vertex shader invocations.
+/// 
+/// Generally takes ~3x less time to optimize meshes but produces inferior
+/// results compared to `optimize_vertex_cache_fifo_in_place`.
+/// 
+/// If index buffer contains multiple ranges for multiple draw calls,
+/// this function needs to be called on each range individually.
 pub fn optimize_vertex_cache_fifo_in_place(
     indices: &mut [u32],
     vertex_count: usize,
@@ -64,11 +86,13 @@ pub fn optimize_vertex_cache_fifo_in_place(
     }
 }
 
-/// Vertex fetch cache optimizer
-/// Reorders vertices and changes indices to reduce the amount of GPU memory fetches during vertex processing
+/// Reorders vertices and changes indices to reduce the amount of GPU
+/// memory fetches during vertex processing.
+/// 
+/// This functions works for a single vertex stream; for multiple vertex streams,
+/// use `optimize_vertex_fetch_remap` + `remap_vertex_buffer` for each stream.
 ///
-/// destination must contain enough space for the resulting vertex buffer (vertex_count elements)
-/// indices is used both as an input and as an output index buffer
+/// `indices` is used both as an input and as an output index buffer.
 pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: &[T]) -> Vec<T> {
     let mut result: Vec<T> = vec![T::default(); vertices.len()];
     let next_vertex = unsafe {
@@ -85,6 +109,14 @@ pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: 
     result
 }
 
+/// Vertex fetch cache optimizer (modifies in place)
+/// Reorders vertices and changes indices to reduce the amount of GPU
+/// memory fetches during vertex processing.
+/// 
+/// This functions works for a single vertex stream; for multiple vertex streams,
+/// use `optimize_vertex_fetch_remap` + `remap_vertex_buffer` for each stream.
+///
+/// `indices` and `vertices` are used both as an input and as an output buffer.
 pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]) -> usize {
     unsafe {
         ffi::meshopt_optimizeVertexFetch(
@@ -98,11 +130,11 @@ pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]
     }
 }
 
-/// Vertex fetch cache optimizer
-/// Generates vertex remap to reduce the amount of GPU memory fetches during vertex processing
-/// The resulting remap table should be used to reorder vertex/index buffers using `optimize_remap_vertex_buffer`/`optimize_remap_index_buffer`
-///
-/// destination must contain enough space for the resulting remap table (`vertex_count` elements)
+/// Generates vertex remap to reduce the amount of GPU memory fetches during
+/// vertex processing.
+/// 
+/// The resulting remap table should be used to reorder vertex/index buffers
+/// using `optimize_remap_vertex_buffer`/`optimize_remap_index_buffer`.
 pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<u32> {
     let mut result: Vec<u32> = vec![0; vertex_count];
     let next_vertex = unsafe {
@@ -117,13 +149,14 @@ pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<
     result
 }
 
-/// Overdraw optimizer
-/// Reorders indices to reduce the number of GPU vertex shader invocations and the pixel overdraw
+/// Reorders indices to reduce the number of GPU vertex shader invocations
+/// and the pixel overdraw.
 ///
-/// destination must contain enough space for the resulting index buffer (index_count elements)
-/// indices must contain index data that is the result of optimizeVertexCache (*not* the original mesh indices!)
-/// vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer
-/// threshold indicates how much the overdraw optimizer can degrade vertex cache efficiency (1.05 = up to 5%) to reduce overdraw more efficiently
+/// `indices` must contain index data that is the result of `optimize_vertex_cache`
+/// (*not* the original mesh indices!)
+/// 
+/// `threshold` indicates how much the overdraw optimizer can degrade vertex cache
+/// efficiency (1.05 = up to 5%) to reduce overdraw more efficiently.
 pub fn optimize_overdraw_in_place<T: DecodePosition>(
     indices: &mut [u32],
     vertices: &[T],

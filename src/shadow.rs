@@ -2,10 +2,12 @@ use crate::ffi;
 use crate::DecodePosition;
 use crate::VertexStream;
 
-/// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary.
-/// All vertices that are binary equivalent (wrt first vertex_size bytes) map to the first vertex in the original vertex buffer.
-/// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original vertex/index
-/// buffers elsewhere.
+/// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
+/// attributes is necessary. All vertices that are binary equivalent (wrt first vertex_size bytes) map to
+/// the first vertex in the original vertex buffer.
+/// 
+/// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
+/// the original index buffer for regular rendering.
 pub fn generate_shadow_indices<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> Vec<u32> {
     let vertices = vertices
         .iter()
@@ -27,10 +29,12 @@ pub fn generate_shadow_indices<T: DecodePosition>(indices: &[u32], vertices: &[T
     shadow_indices
 }
 
-/// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary.
-/// All vertices that are binary equivalent (wrt specified streams) map to the first vertex in the original vertex buffer.
-/// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original vertex/index
-/// buffers elsewhere.
+/// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
+/// attributes is necessary. All vertices that are binary equivalent (wrt specified streams) map to the
+/// first vertex in the original vertex buffer.
+/// 
+/// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
+/// the original index buffer for regular rendering.
 pub fn generate_shadow_indices_multi(indices: &[u32], vertex_count: usize, streams: &[VertexStream]) -> Vec<u32> {
     let streams: Vec<ffi::meshopt_Stream> = streams.iter().map(|stream| {
         ffi::meshopt_Stream {

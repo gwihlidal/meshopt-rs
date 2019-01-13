@@ -38,28 +38,32 @@ pub fn convert_indices_16_to_32(indices: &[u16]) -> Result<Vec<u32>> {
     Ok(result)
 }
 
-/// Quantize a float in [0..1] range into an N-bit fixed point unorm value
-/// Assumes reconstruction function (q / (2^N-1)), which is the case for fixed-function normalized fixed point conversion
-/// Maximum reconstruction error: 1/2^(N+1)
+/// Quantize a float in [0..1] range into an N-bit fixed point unorm value.
+/// 
+/// Assumes reconstruction function (q / (2^N-1)), which is the case for
+/// fixed-function normalized fixed point conversion.
+/// 
+/// Maximum reconstruction error: 1/2^(N+1).
 #[inline(always)]
 pub fn quantize_unorm(v: f32, n: i32) -> i32 {
     let scale = ((1i32 << n) - 1i32) as f32;
     let v = if v >= 0f32 { v } else { 0f32 };
     let v = if v <= 1f32 { v } else { 1f32 };
-
     (v * scale + 0.5f32) as i32
 }
 
-/// Quantize a float in [-1..1] range into an N-bit fixed point snorm value
-/// Assumes reconstruction function (q / (2^(N-1)-1)), which is the case for fixed-function normalized fixed point conversion (except early OpenGL versions)
-/// Maximum reconstruction error: 1/2^N
+/// Quantize a float in [-1..1] range into an N-bit fixed point snorm value.
+/// 
+/// Assumes reconstruction function (q / (2^(N-1)-1)), which is the case for
+/// fixed-function normalized fixed point conversion (except early OpenGL versions).
+/// 
+/// Maximum reconstruction error: 1/2^N.
 #[inline(always)]
 pub fn quantize_snorm(v: f32, n: u32) -> i32 {
     let scale = ((1 << (n - 1)) - 1) as f32;
     let round = if v >= 0f32 { 0.5f32 } else { -0.5f32 };
     let v = if v >= -1f32 { v } else { -1f32 };
     let v = if v <= 1f32 { v } else { 1f32 };
-
     (v * scale + round) as i32
 }
 
@@ -69,10 +73,10 @@ union FloatUInt {
     ui: u32,
 }
 
-/// Quantize a float into half-precision floating point value
-/// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
-/// Representable magnitude range: [6e-5; 65504]
-/// Maximum relative reconstruction error: 5e-4
+/// Quantize a float into half-precision floating point value.
+/// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest.
+/// Representable magnitude range: [6e-5; 65504].
+/// Maximum relative reconstruction error: 5e-4.
 #[inline(always)]
 pub fn quantize_half(v: f32) -> u16 {
     let u = FloatUInt { fl: v };
@@ -95,8 +99,8 @@ pub fn quantize_half(v: f32) -> u16 {
     (s | h) as u16
 }
 
-/// Quantize a float into a floating point value with a limited number of significant mantissa bits
-/// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest
+/// Quantize a float into a floating point value with a limited number of significant mantissa bits.
+/// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest.
 /// Assumes N is in a valid mantissa precision range, which is 1..23
 #[inline(always)]
 pub fn quantize_float(v: f32, n: i32) -> f32 {
@@ -109,7 +113,8 @@ pub fn quantize_float(v: f32, n: i32) -> f32 {
     let e = (ui & 0x7f80_0000) as i32;
     let rui: u32 = ((ui as i32 + round) & !mask) as u32;
 
-    // round all numbers except inf/nan; this is important to make sure nan doesn't overflow into -0
+    // round all numbers except inf/nan; this is important to make
+    // sure nan doesn't overflow into -0
     ui = if e == 0x7f80_0000 { ui } else { rui };
 
     // flush denormals to zero

@@ -4,9 +4,15 @@ use crate::DecodePosition;
 pub type Bounds = ffi::meshopt_Bounds;
 pub type Meshlet = ffi::meshopt_Meshlet;
 
-/// Splits the mesh into a set of meshlets where each meshlet has a micro index buffer indexing into meshlet vertices that refer to the original vertex buffer
-/// The resulting data can be used to render meshes using NVidia programmable mesh shading pipeline, or in other cluster-based renderers.
-/// For maximum efficiency the index buffer being converted has to be optimized for vertex cache first.
+/// Splits the mesh into a set of meshlets where each meshlet has a micro index buffer
+/// indexing into meshlet vertices that refer to the original vertex buffer.
+/// 
+/// The resulting data can be used to render meshes using NVidia programmable mesh shading
+/// pipeline, or in other cluster-based renderers.
+/// 
+/// For maximum efficiency the index buffer being converted has to be optimized for vertex
+/// cache first.
+/// 
 /// Note: `max_vertices` must be <= 64 and `max_triangles` must be <= 126
 pub fn build_meshlets(
     indices: &[u32],
@@ -36,11 +42,12 @@ pub fn build_meshlets(
 /// For backface culling with orthographic projection, use the following formula to reject backfacing clusters:
 ///   `dot(view, cone_axis) >= cone_cutoff`
 ///
-/// For perspective projection, you can the formula that needs cone apex in addition to axis & cutoff:
+/// For perspective projection, use the following formula that needs cone apex in addition to axis & cutoff:
 ///   `dot(normalize(cone_apex - camera_position), cone_axis) >= cone_cutoff`
 ///
 /// Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:
 ///   `dot(normalize(center - camera_position), cone_axis) >= cone_cutoff + radius / length(center - camera_position)`
+/// 
 /// or an equivalent formula that doesn't have a singularity at center = camera_position:
 ///   `dot(center - camera_position, cone_axis) >= cone_cutoff * length(center - camera_position) + radius`
 ///
@@ -72,7 +79,6 @@ pub fn compute_meshlet_bounds<T: DecodePosition>(meshlet: &Meshlet, vertices: &[
         .collect::<Vec<[f32; 3]>>();
     let positions = vertices.as_ptr() as *const f32;
     unsafe {
-        // TODO: Should change mesh optimizer take meshlet by reference
         ffi::meshopt_computeMeshletBounds(
             *meshlet,
             positions,

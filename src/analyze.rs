@@ -6,6 +6,8 @@ pub type VertexCacheStatistics = ffi::meshopt_VertexCacheStatistics;
 pub type VertexFetchStatistics = ffi::meshopt_VertexFetchStatistics;
 pub type OverdrawStatistics = ffi::meshopt_OverdrawStatistics;
 
+/// Returns cache hit statistics using a simplified FIFO model.
+/// Results may not match actual GPU performance.
 pub fn analyze_vertex_cache(
     indices: &[u32],
     vertex_count: usize,
@@ -25,6 +27,8 @@ pub fn analyze_vertex_cache(
     }
 }
 
+/// Returns cache hit statistics using a simplified direct mapped model.
+/// Results may not match actual GPU performance.
 pub fn analyze_vertex_fetch(
     indices: &[u32],
     vertex_count: usize,
@@ -40,6 +44,8 @@ pub fn analyze_vertex_fetch(
     }
 }
 
+/// Returns overdraw statistics using a software rasterizer.
+/// Results may not match actual GPU performance.
 pub fn analyze_overdraw<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> OverdrawStatistics {
     let positions = vertices
         .iter()

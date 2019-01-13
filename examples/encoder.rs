@@ -1,13 +1,12 @@
 extern crate gltf;
 extern crate meshopt;
-extern crate tobj;
-//#[macro_use]
 extern crate structopt;
+extern crate tobj;
 
-use meshopt::any_as_u8_slice;
-use meshopt::{quantize_snorm, quantize_unorm};
-use meshopt::{EncodeHeader, EncodeObject};
-use meshopt::{PackedVertex, Vertex};
+use meshopt::{
+    any_as_u8_slice, quantize_snorm, quantize_unorm, rcp_safe, EncodeHeader, EncodeObject,
+    PackedVertex, Vertex,
+};
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -44,6 +43,7 @@ fn main() {
     let mut merged_coords: Vec<f32> = Vec::new();
     let mut merged_vertices: Vec<Vertex> = Vec::new();
     let mut merged_indices: Vec<u32> = Vec::new();
+
     let mut objects: Vec<Object> = Vec::new();
 
     for (i, m) in models.iter().enumerate() {
@@ -70,8 +70,8 @@ fn main() {
             merged_positions.push(p[1]);
             merged_positions.push(p[2]);
 
+            // normal = [x, y, z]
             let n = if !mesh.normals.is_empty() {
-                // normal = [x, y, z]
                 [
                     mesh.normals[index * 3 + 0],
                     mesh.normals[index * 3 + 1],
@@ -81,8 +81,8 @@ fn main() {
                 [0f32, 0f32, 0f32]
             };
 
+            // tex coord = [u, v];
             let t = if !mesh.texcoords.is_empty() {
-                // tex coord = [u, v];
                 [mesh.texcoords[index * 2], mesh.texcoords[index * 2 + 1]]
             } else {
                 [0f32, 0f32]
@@ -107,11 +107,11 @@ fn main() {
     let pos_bits = 14;
     let uv_bits = 12;
 
-    let (pos_offset, pos_scale_inv) = meshopt::calc_pos_offset_and_scale_inverse(&merged_positions);
-    let (uv_offset, uv_scale_inv) = meshopt::calc_uv_offset_and_scale_inverse(&merged_coords);
+    let (pos_offset, pos_scale) = meshopt::calc_pos_offset_and_scale(&merged_positions);
+    let (uv_offset, uv_scale) = meshopt::calc_uv_offset_and_scale(&merged_coords);
 
-    println!("pos_offset: {}, {}, {} pos_scale_inv: {}", pos_offset[0], pos_offset[1], pos_offset[2], pos_scale_inv);
-    println!("uv_offset: {}, {} uv_scale_inv: {}, {}", uv_offset[0], uv_offset[1], uv_scale_inv[0], uv_scale_inv[1]);
+    let pos_scale_inv = rcp_safe(pos_scale);
+    let uv_scale_inv = [rcp_safe(uv_scale[0]), rcp_safe(uv_scale[1])];
 
     let quantized_vertices: Vec<PackedVertex> = merged_vertices
         .iter()
@@ -127,36 +127,21 @@ fn main() {
             let t_0 = quantize_unorm((v.t[0] - uv_offset[0]) * uv_scale_inv[0], uv_bits) as u16;
             let t_1 = quantize_unorm((v.t[1] - uv_offset[1]) * uv_scale_inv[1], uv_bits) as u16;
 
-            let v = PackedVertex {
+            PackedVertex {
                 p: [p_0, p_1, p_2, 0],
                 n: [n_0, n_1, n_2, 0],
                 t: [t_0, t_1],
-            };
-
-            println!("p[{}, {}, {}, {}], n[{}, {}, {}, {}], t[{}, {}]", v.p[0], v.p[1], v.p[2], v.p[3], v.n[0], v.n[1], v.n[2], v.n[3], v.t[0], v.t[1]);
-
-            v
+            }
         })
         .collect();
 
-    let (_, vertex_remap) = meshopt::generate_vertex_remap(&quantized_vertices, None);
-
-    for remap in &vertex_remap {
-        println!("remap: {}", remap);
-    }
+    let (vertex_count, vertex_remap) = meshopt::generate_vertex_remap(&quantized_vertices, None);
 
     let mut remapped_indices =
         meshopt::remap_index_buffer(None, merged_indices.len(), &vertex_remap);
 
-    for index in &remapped_indices {
-        println!("indices: {}", index);
-    }
-
-    let mut remapped_vertices = meshopt::remap_vertex_buffer(&quantized_vertices, &vertex_remap);
-
-    for v in &remapped_vertices {
-        println!("p[{}, {}, {}, {}], n[{}, {}, {}, {}], t[{}, {}]", v.p[0], v.p[1], v.p[2], v.p[3], v.n[0], v.n[1], v.n[2], v.n[3], v.t[0], v.t[1]);
-    }
+    let mut remapped_vertices =
+        meshopt::remap_vertex_buffer(&quantized_vertices, vertex_count, &vertex_remap);
 
     for object in &objects {
         meshopt::optimize_vertex_cache_in_place(
@@ -178,9 +163,9 @@ fn main() {
         encoded_vertices.len() as u32,
         encoded_indices.len() as u32,
         pos_offset,
-        pos_scale_inv,
+        pos_scale,
         uv_offset,
-        uv_scale_inv,
+        uv_scale,
         pos_bits as u32,
         uv_bits as u32,
     );
@@ -201,11 +186,7 @@ fn main() {
 
     for object in &objects {
         output.write(object.material.as_bytes()).unwrap();
-        println!("{:?}", &object);
     }
-
-    println!("encoded vbuf\n{:?}", encoded_vertices);
-    println!("encoded ibuf\n{:?}", encoded_indices);
 
     output.write(&encoded_vertices).unwrap();
     output.write(&encoded_indices).unwrap();

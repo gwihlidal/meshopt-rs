@@ -23,6 +23,10 @@ struct Options {
     /// Output file
     #[structopt(short = "o", long = "output", parse(from_os_str))]
     output: PathBuf,
+
+    /// No optimization (just encoding)
+    #[structopt(short = "u", long = "unoptimized")]
+    unoptimized: bool,
 }
 
 #[derive(Debug)]
@@ -35,9 +39,15 @@ struct Object {
 fn main() {
     let options = Options::from_args();
 
+    if options.unoptimized {
+        println!("Encoding [unoptimized] {:?}", &options.input);
+    } else {
+        println!("Encoding {:?}", &options.input);
+    }
+
     let obj_file = tobj::load_obj(&options.input);
     assert!(obj_file.is_ok());
-    let (models, _materials) = obj_file.unwrap();
+    let (models, materials) = obj_file.unwrap();
 
     let mut merged_positions: Vec<f32> = Vec::new();
     let mut merged_coords: Vec<f32> = Vec::new();
@@ -46,11 +56,13 @@ fn main() {
 
     let mut objects: Vec<Object> = Vec::new();
 
-    for (i, m) in models.iter().enumerate() {
+    for (_, m) in models.iter().enumerate() {
         let mesh = &m.mesh;
 
-        println!("model[{}].name = \'{}\'", i, m.name);
-        println!("model[{}].mesh.material_id = {:?}", i, mesh.material_id);
+        let material = match mesh.material_id {
+            Some(id) => materials[id as usize].name.to_owned(),
+            None => String::new(),
+        };
 
         let mut vertices: Vec<Vertex> = Vec::new();
         let vertex_start = merged_vertices.len();
@@ -98,7 +110,7 @@ fn main() {
         merged_vertices.append(&mut vertices);
 
         objects.push(Object {
-            material: String::from(""),
+            material,
             index_offset: index_start,
             index_count: mesh.indices.len(),
         });
@@ -143,32 +155,38 @@ fn main() {
     let mut remapped_vertices =
         meshopt::remap_vertex_buffer(&quantized_vertices, vertex_count, &vertex_remap);
 
-    for object in &objects {
-        meshopt::optimize_vertex_cache_in_place(
-            &mut remapped_indices[object.index_offset..(object.index_offset + object.index_count)],
-            remapped_vertices.len(),
-        );
-    }
+    if !options.unoptimized {
+        for object in &objects {
+            meshopt::optimize_vertex_cache_in_place(
+                &mut remapped_indices
+                    [object.index_offset..(object.index_offset + object.index_count)],
+                remapped_vertices.len(),
+            );
+        }
 
-    meshopt::optimize_vertex_fetch_in_place(&mut remapped_indices, &mut remapped_vertices);
+        meshopt::optimize_vertex_fetch_in_place(&mut remapped_indices, &mut remapped_vertices);
+    }
 
     let encoded_vertices = meshopt::encode_vertex_buffer(&remapped_vertices).unwrap();
     let encoded_indices =
         meshopt::encode_index_buffer(&remapped_indices, remapped_vertices.len()).unwrap();
 
-    let header = EncodeHeader::new(
-        objects.len() as u32,
-        merged_vertices.len() as u32,
-        merged_indices.len() as u32,
-        encoded_vertices.len() as u32,
-        encoded_indices.len() as u32,
+    let header = EncodeHeader {
+        magic: *b"OPTM",
+        group_count: objects.len() as u32,
+        vertex_count: vertex_count as u32,
+        index_count: merged_indices.len() as u32,
+        vertex_data_size: encoded_vertices.len() as u32,
+        index_data_size: encoded_indices.len() as u32,
         pos_offset,
-        pos_scale,
+        pos_scale: pos_scale / ((1 << pos_bits) - 1) as f32,
         uv_offset,
-        uv_scale,
-        pos_bits as u32,
-        uv_bits as u32,
-    );
+        uv_scale: [
+            uv_scale[0] / ((1 << uv_bits) - 1) as f32,
+            uv_scale[1] / ((1 << uv_bits) - 1) as f32,
+        ],
+        reserved: [0, 0],
+    };
 
     let mut output = File::create(&options.output).unwrap();
 
@@ -190,4 +208,6 @@ fn main() {
 
     output.write(&encoded_vertices).unwrap();
     output.write(&encoded_indices).unwrap();
+
+    println!("   Serialized encoded mesh to {:?}", &options.output);
 }

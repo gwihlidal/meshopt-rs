@@ -100,39 +100,6 @@ pub struct EncodeHeader {
     pub reserved: [u32; 2],
 }
 
-impl EncodeHeader {
-    pub fn new(
-        group_count: u32,
-        vertex_count: u32,
-        index_count: u32,
-        vertex_data_size: u32,
-        index_data_size: u32,
-        pos_offset: [f32; 3],
-        pos_scale: f32,
-        uv_offset: [f32; 2],
-        uv_scale: [f32; 2],
-        pos_bits: u32,
-        uv_bits: u32,
-    ) -> Self {
-        EncodeHeader {
-            magic: *b"OPTM",
-            group_count,
-            vertex_count,
-            index_count,
-            vertex_data_size,
-            index_data_size,
-            pos_offset,
-            pos_scale: pos_scale / ((1 << pos_bits) - 1) as f32,
-            uv_offset,
-            uv_scale: [
-                uv_scale[0] / ((1 << uv_bits) - 1) as f32,
-                uv_scale[1] / ((1 << uv_bits) - 1) as f32,
-            ],
-            reserved: [0, 0],
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct EncodeObject {

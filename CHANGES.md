@@ -1,8 +1,14 @@
 # Changes
 
+## 0.1.6 (2019-03-25)
+
+* Fixed usage of VertexStream and adjust data representation.
+* Upgraded meshoptimizer library to 0.11.0.
+* Upgraded crate dependencies.
+
 ## 0.1.5 (2019-01-14)
 
-* Fixed demo example
+* Fixed demo example.
 
 ## 0.1.4 (2019-01-12)
 

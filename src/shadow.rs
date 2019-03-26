@@ -43,8 +43,8 @@ pub fn generate_shadow_indices_multi(
     let streams: Vec<ffi::meshopt_Stream> = streams
         .iter()
         .map(|stream| ffi::meshopt_Stream {
-            data: stream.data.as_ptr() as *const ::std::ffi::c_void,
-            size: stream.data.len(),
+            data: stream.data as *const ::std::ffi::c_void,
+            size: stream.size,
             stride: stream.stride,
         })
         .collect();

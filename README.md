@@ -157,6 +157,8 @@ at your option.
 - [Arseny Kapoulkine](https://github.com/zeux) (Author of C/C++ library)
 - [Daniel Collin](https://github.com/emoon) (Code review)
 - [Jake Shadle](https://github.com/Jake-Shadle) (Code review)
+- [Thomas Herzog](https://github.com/karroffel) (Contributions)
+- [Alexandru Ene](https://github.com/AlexEne) (Contributions)
 
 ## Contribution
 

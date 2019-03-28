@@ -80,7 +80,7 @@ pub fn compute_meshlet_bounds<T: DecodePosition>(meshlet: &Meshlet, vertices: &[
     let positions = vertices.as_ptr() as *const f32;
     unsafe {
         ffi::meshopt_computeMeshletBounds(
-            *meshlet,
+            meshlet,
             positions,
             vertices.len() * 3,
             ::std::mem::size_of::<f32>() * 3,

@@ -245,6 +245,8 @@ extern "C" {
 extern "C" {
     #[doc = " Experimental: Mesh simplifier"]
     #[doc = " Reduces the number of triangles in the mesh, attempting to preserve mesh appearance as much as possible"]
+    #[doc = " The algorithm tries to preserve mesh topology and can stop short of the target goal based on topology constraints or target error."]
+    #[doc = " If not all attributes from the input mesh are required, it\'s recommended to reindex the mesh using meshopt_generateShadowIndexBuffer prior to simplification."]
     #[doc = " Returns the number of indices after simplification, with destination containing new index data"]
     #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
     #[doc = " If the original vertex data isn\'t required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
@@ -260,6 +262,26 @@ extern "C" {
         vertex_positions_stride: usize,
         target_index_count: usize,
         target_error: f32,
+    ) -> usize;
+}
+extern "C" {
+    #[doc = " Experimental: Mesh simplifier (sloppy)"]
+    #[doc = " Reduces the number of triangles in the mesh, sacrificing mesh apperance for simplification performance"]
+    #[doc = " The algorithm doesn\'t preserve mesh topology but is always able to reach target triangle count."]
+    #[doc = " Returns the number of indices after simplification, with destination containing new index data"]
+    #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
+    #[doc = " If the original vertex data isn\'t required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the target index buffer"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    pub fn meshopt_simplifySloppy(
+        destination: *mut ::std::os::raw::c_uint,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+        target_index_count: usize,
     ) -> usize;
 }
 extern "C" {
@@ -431,9 +453,23 @@ extern "C" {
 }
 extern "C" {
     pub fn meshopt_computeMeshletBounds(
-        meshlet: meshopt_Meshlet,
+        meshlet: *const meshopt_Meshlet,
         vertex_positions: *const f32,
         vertex_count: usize,
         vertex_positions_stride: usize,
     ) -> meshopt_Bounds;
+}
+extern "C" {
+    #[doc = " Experimental: Set allocation callbacks"]
+    #[doc = " These callbacks will be used instead of the default operator new/operator delete for all temporary allocations in the library."]
+    #[doc = " Note that all algorithms only allocate memory for temporary use."]
+    #[doc = " allocate/deallocate are always called in a stack-like order - last pointer to be allocated is deallocated first."]
+    pub fn meshopt_setAllocator(
+        allocate: ::std::option::Option<
+            unsafe extern "C" fn(allocate: usize) -> *mut ::std::os::raw::c_void,
+        >,
+        deallocate: ::std::option::Option<
+            unsafe extern "C" fn(allocate: *mut ::std::os::raw::c_void),
+        >,
+    );
 }

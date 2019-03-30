@@ -41,17 +41,17 @@ float-cmp = "0.4.0"
 failure = "0.1.5"
 
 [build-dependencies]
-cc = { version = "1.0.31", features = ["parallel"] }
+cc = { version = "1.0.32", features = ["parallel"] }
 
 [build-dependencies.bindgen]
-version = "0.48.1"
+version = "0.49.0"
 optional = true
 
 [dev-dependencies]
 tobj = "0.1.6"
 miniz_oxide = "0.2.1"
 rand = "0.6.5"
-libc = "0.2.50"
+libc = "0.2.51"
 structopt = "0.2"
 
 [dev-dependencies.gltf]

@@ -1,10 +1,11 @@
 # Changes
 
-## 0.1.6 (2019-03-25)
+## 0.1.6 (2019-03-29)
 
 * Fixed usage of VertexStream and adjust data representation.
 * Upgraded meshoptimizer library to 0.11.0.
 * Upgraded crate dependencies.
+* Added `simplify_sloppy` wrapper
 
 ## 0.1.5 (2019-01-14)
 

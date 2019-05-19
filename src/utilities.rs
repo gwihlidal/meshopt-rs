@@ -1,4 +1,5 @@
 use crate::{Error, Result};
+use std::io::{Cursor, Read};
 
 #[inline(always)]
 pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
@@ -130,5 +131,81 @@ pub fn rcp_safe(v: f32) -> f32 {
         0f32
     } else {
         1f32 / v
+    }
+}
+
+pub struct VertexDataAdapter<'a> {
+    pub reader: Cursor<&'a [u8]>,
+    pub vertex_count: usize,
+    pub vertex_stride: usize,
+    pub position_offset: usize,
+}
+
+impl<'a> VertexDataAdapter<'a> {
+    pub fn new(
+        data: &'a [u8],
+        vertex_stride: usize,
+        position_offset: usize,
+    ) -> Result<VertexDataAdapter<'a>> {
+        let vertex_count = data.len() / vertex_stride;
+        if data.len() % vertex_stride != 0 {
+            Err(Error::memory(format!(
+                "vertex data length ({}) must be evenly divisible by vertex_stride ({})",
+                data.len(),
+                vertex_stride
+            )))
+        } else if position_offset >= vertex_stride {
+            Err(Error::memory(format!(
+                "position_offset ({}) must be smaller than vertex_stride ({})",
+                position_offset, vertex_stride
+            )))
+        } else {
+            Ok(VertexDataAdapter {
+                reader: Cursor::new(data),
+                vertex_count,
+                vertex_stride,
+                position_offset,
+            })
+        }
+    }
+
+    pub fn xyz_f32_at(&mut self, vertex: usize) -> Result<&[f32]> {
+        if vertex <= self.vertex_count {
+            Err(Error::memory(format!(
+                "vertex index ({}) must be less than total vertex count ({})",
+                vertex, self.vertex_count
+            )))
+        } else {
+            let reader_pos = self.reader.position();
+            let vertex_offset = vertex * self.vertex_stride;
+            self.reader
+                .set_position((vertex_offset + self.position_offset) as u64);
+            let mut scratch: [u8; 12] = unsafe { std::mem::uninitialized() };
+            self.reader.read_exact(&mut scratch)?;
+            let position =
+                unsafe { std::slice::from_raw_parts(scratch.as_ptr() as *const f32, 12) };
+            self.reader.set_position(reader_pos);
+            Ok(position)
+        }
+    }
+
+    pub fn pos_ptr(&self) -> *const f32 {
+        let vertex_data = self.reader.get_ref();
+        let vertex_data = vertex_data.as_ptr() as *const u8;
+        let positions = unsafe { vertex_data.add(self.position_offset) };
+        positions as *const f32
+    }
+
+    pub fn pos_mut_ptr(&self) -> *mut f32 {
+        let vertex_data = self.reader.get_ref();
+        let vertex_data = vertex_data.as_ptr() as *mut u8;
+        let positions = unsafe { vertex_data.add(self.position_offset) };
+        positions as *mut f32
+    }
+}
+
+impl<'a> Read for VertexDataAdapter<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
+        self.reader.read(buf)
     }
 }

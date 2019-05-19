@@ -1,5 +1,5 @@
 use crate::ffi;
-use crate::DecodePosition;
+use crate::{DecodePosition, VertexDataAdapter};
 use std::mem;
 
 pub type VertexCacheStatistics = ffi::meshopt_VertexCacheStatistics;
@@ -46,7 +46,10 @@ pub fn analyze_vertex_fetch(
 
 /// Returns overdraw statistics using a software rasterizer.
 /// Results may not match actual GPU performance.
-pub fn analyze_overdraw<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> OverdrawStatistics {
+pub fn analyze_overdraw_decoder<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+) -> OverdrawStatistics {
     let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -58,6 +61,20 @@ pub fn analyze_overdraw<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> O
             positions.as_ptr() as *const f32,
             positions.len(),
             mem::size_of::<f32>() * 3,
+        )
+    }
+}
+
+/// Returns overdraw statistics using a software rasterizer.
+/// Results may not match actual GPU performance.
+pub fn analyze_overdraw(indices: &[u32], vertices: &VertexDataAdapter) -> OverdrawStatistics {
+    unsafe {
+        ffi::meshopt_analyzeOverdraw(
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
         )
     }
 }

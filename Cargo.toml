@@ -2,7 +2,7 @@
 name = "meshopt"
 version = "0.1.7"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
-description = "Rust ffi bindings and idiomatic wrapper for zeux/meshoptimizer"
+description = "Rust ffi bindings and idiomatic wrapper for mesh optimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"
 repository = "https://github.com/gwihlidal/meshopt-rs"
 documentation = "https://docs.rs/meshopt"
@@ -53,6 +53,7 @@ miniz_oxide = "0.2.1"
 rand = "0.6.5"
 libc = "0.2.55"
 structopt = "0.2"
+memoffset = "0.3.0"
 
 [dev-dependencies.gltf]
 version = "0.12.0"

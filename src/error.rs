@@ -43,6 +43,10 @@ impl Error {
     pub fn number<E: Fail>(err: E) -> Error {
         Error::from(err.context(ErrorKind::Number))
     }
+
+    pub fn io<E: Fail>(err: E) -> Error {
+        Error::from(err.context(ErrorKind::Io))
+    }
 }
 
 impl Fail for Error {
@@ -133,5 +137,12 @@ impl From<ErrorKind> for Error {
 impl From<Context<ErrorKind>> for Error {
     fn from(ctx: Context<ErrorKind>) -> Error {
         Error { ctx }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::io(err)
+        //Error::from(Context::new(ErrorKind::Io))
     }
 }

@@ -23,7 +23,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-meshopt = "0.1.6"
+meshopt = "0.1.7"
 ```
 
 and add this to your crate root:
@@ -101,6 +101,7 @@ Quantization is usually domain specific; it's common to quantize normals using 3
 The number of possible combinations here is very large but this library does provide the building blocks, specifically functions to quantize floating point values to normalized integers, as well as half-precision floats.
 
 Relevant routines:
+
 - `quantize_unorm`
 - `quantize_snorm`
 - `quantize_half`

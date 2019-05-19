@@ -3,6 +3,8 @@ extern crate meshopt;
 extern crate miniz_oxide;
 extern crate rand;
 extern crate tobj;
+#[macro_use]
+extern crate memoffset;
 
 use meshopt::*;
 use rand::{seq::SliceRandom, thread_rng};
@@ -265,6 +267,14 @@ impl Mesh {
 
         result
     }
+
+    fn vertex_adapter(&self) -> VertexDataAdapter {
+        let position_offset = offset_of!(Vertex, p);
+        let vertex_stride = std::mem::size_of::<Vertex>();
+        let vertex_data = typed_to_bytes(&self.vertices);
+        VertexDataAdapter::new(vertex_data, vertex_stride, position_offset)
+            .expect("failed to create vertex data reader")
+    }
 }
 
 fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
@@ -277,13 +287,15 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
     opt(&mut copy);
     let optimize_elapsed = optimize_start.elapsed();
 
+    let vertex_adapter = copy.vertex_adapter();
+
     let vcs =
         meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
 
     let vfs =
         meshopt::analyze_vertex_fetch(&copy.indices, copy.vertices.len(), mem::size_of::<Vertex>());
 
-    let os = meshopt::analyze_overdraw(&copy.indices, &copy.vertices);
+    let os = meshopt::analyze_overdraw(&copy.indices, &vertex_adapter);
 
     let vcs_nv = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 32, 32, 32);
 
@@ -338,10 +350,12 @@ fn opt_cache_fifo(mesh: &mut Mesh) {
 }
 
 fn opt_overdraw(mesh: &mut Mesh) {
+    let vertex_adapter = mesh.vertex_adapter();
+
     // use worst-case ACMR threshold so that overdraw optimizer can sort *all* triangles
     // warning: this significantly deteriorates the vertex cache efficiency so it is not advised; look at `opt_complete` for the recommended method
     let threshold = 3f32;
-    meshopt::optimize_overdraw_in_place(&mut mesh.indices, &mesh.vertices, threshold);
+    meshopt::optimize_overdraw_in_place(&mesh.indices, &vertex_adapter, threshold);
 }
 
 fn opt_fetch(mesh: &mut Mesh) {
@@ -355,12 +369,14 @@ fn opt_fetch_remap(mesh: &mut Mesh) {
 }
 
 fn opt_complete(mesh: &mut Mesh) {
+    let vertex_adapter = mesh.vertex_adapter();
+
     // vertex cache optimization should go first as it provides starting order for overdraw
-    meshopt::optimize_vertex_cache_in_place(&mut mesh.indices, mesh.vertices.len());
+    meshopt::optimize_vertex_cache_in_place(&mesh.indices, mesh.vertices.len());
 
     // reorder indices for overdraw, balancing overdraw and vertex cache efficiency
     let threshold = 1.05f32; // allow up to 5% worse ACMR to get more reordering opportunities for overdraw
-    meshopt::optimize_overdraw_in_place(&mut mesh.indices, &mesh.vertices, threshold);
+    meshopt::optimize_overdraw_in_place(&mesh.indices, &vertex_adapter, threshold);
 
     // vertex fetch optimization should go last as it depends on the final index order
     let final_size = meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
@@ -398,7 +414,8 @@ fn stripify(mesh: &Mesh) {
 
 fn shadow(mesh: &Mesh) {
     let process_start = Instant::now();
-    let mut shadow_indices = meshopt::generate_shadow_indices(&mesh.indices, &mesh.vertices);
+    let vertex_adapter = mesh.vertex_adapter();
+    let mut shadow_indices = meshopt::generate_shadow_indices(&mesh.indices, &vertex_adapter);
     let process_elapsed = process_start.elapsed();
 
     // While you can't optimize the vertex data after shadow IB was constructed, you can and should optimize
@@ -449,6 +466,8 @@ fn meshlets(mesh: &Mesh) {
     let mut avg_triangles = 0f64;
     let mut not_full = 0usize;
 
+    let vertex_adapter = mesh.vertex_adapter();
+
     for meshlet in &meshlets {
         avg_vertices += meshlet.vertex_count as f64;
         avg_triangles += meshlet.triangle_count as f64;
@@ -480,7 +499,7 @@ fn meshlets(mesh: &Mesh) {
 
     let test_start = Instant::now();
     for meshlet in &meshlets {
-        let bounds = meshopt::compute_meshlet_bounds(&meshlet, &mesh.vertices);
+        let bounds = meshopt::compute_meshlet_bounds(&meshlet, &vertex_adapter);
 
         // trivial accept: we can't ever backface cull this meshlet
         if bounds.cone_cutoff >= 1f32 {
@@ -568,6 +587,8 @@ fn simplify(mesh: &Mesh) {
 
     let process_start = Instant::now();
 
+    let vertex_adapter = mesh.vertex_adapter();
+
     // generate 4 LOD levels (1-4), with each subsequent LOD using 70% triangles
     // note that each LOD uses the same (shared) vertex buffer
     let mut lods: Vec<Vec<u32>> = Vec::with_capacity(lod_count);
@@ -583,7 +604,7 @@ fn simplify(mesh: &Mesh) {
             let src = &lods[lods.len() - 1];
             lod = meshopt::simplify(
                 &src,
-                &mesh.vertices,
+                &vertex_adapter,
                 ::std::cmp::min(src.len(), target_index_count),
                 target_error,
             );
@@ -597,7 +618,7 @@ fn simplify(mesh: &Mesh) {
     // optimize each individual LOD for vertex cache & overdraw
     for mut lod in &mut lods {
         meshopt::optimize_vertex_cache_in_place(&mut lod, mesh.vertices.len());
-        meshopt::optimize_overdraw_in_place(&mut lod, &mesh.vertices, 1f32);
+        meshopt::optimize_overdraw_in_place(&mut lod, &vertex_adapter, 1f32);
     }
 
     // concatenate all LODs into one IB

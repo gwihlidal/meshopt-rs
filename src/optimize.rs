@@ -1,5 +1,5 @@
 use crate::ffi;
-use crate::DecodePosition;
+use crate::{DecodePosition, VertexDataAdapter};
 use std::mem;
 
 /// Reorders indices to reduce the number of GPU vertex shader invocations.
@@ -23,10 +23,10 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
 ///
 /// If index buffer contains multiple ranges for multiple draw calls,
 /// this function needs to be called on each range individually.
-pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) {
+pub fn optimize_vertex_cache_in_place(indices: &[u32], vertex_count: usize) {
     unsafe {
         ffi::meshopt_optimizeVertexCache(
-            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *mut ::std::os::raw::c_uint,
             indices.as_ptr() as *const ::std::os::raw::c_uint,
             indices.len(),
             vertex_count,
@@ -157,7 +157,32 @@ pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<
 ///
 /// `threshold` indicates how much the overdraw optimizer can degrade vertex cache
 /// efficiency (1.05 = up to 5%) to reduce overdraw more efficiently.
-pub fn optimize_overdraw_in_place<T: DecodePosition>(
+pub fn optimize_overdraw_in_place(indices: &[u32], vertices: &VertexDataAdapter, threshold: f32) {
+    let vertex_data = vertices.reader.get_ref();
+    let vertex_data = vertex_data.as_ptr() as *const u8;
+    let positions = unsafe { vertex_data.add(vertices.position_offset) };
+    unsafe {
+        ffi::meshopt_optimizeOverdraw(
+            indices.as_ptr() as *mut ::std::os::raw::c_uint,
+            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.len(),
+            positions as *const f32,
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            threshold,
+        );
+    }
+}
+
+/// Reorders indices to reduce the number of GPU vertex shader invocations
+/// and the pixel overdraw.
+///
+/// `indices` must contain index data that is the result of `optimize_vertex_cache`
+/// (*not* the original mesh indices!)
+///
+/// `threshold` indicates how much the overdraw optimizer can degrade vertex cache
+/// efficiency (1.05 = up to 5%) to reduce overdraw more efficiently.
+pub fn optimize_overdraw_in_place_decoder<T: DecodePosition>(
     indices: &mut [u32],
     vertices: &[T],
     threshold: f32,

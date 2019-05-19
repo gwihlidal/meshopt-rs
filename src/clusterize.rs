@@ -1,5 +1,5 @@
 use crate::ffi;
-use crate::DecodePosition;
+use crate::{DecodePosition, VertexDataAdapter};
 
 pub type Bounds = ffi::meshopt_Bounds;
 pub type Meshlet = ffi::meshopt_Meshlet;
@@ -55,7 +55,40 @@ pub fn build_meshlets(
 /// to do frustum/occlusion culling, the formula that doesn't use the apex may be preferable.
 ///
 /// `index_count` should be <= 256*3 (the function assumes clusters of limited size)
-pub fn compute_cluster_bounds<T: DecodePosition>(indices: &[u32], vertices: &[T]) -> Bounds {
+pub fn compute_cluster_bounds(indices: &[u32], vertices: &VertexDataAdapter) -> Bounds {
+    unsafe {
+        ffi::meshopt_computeClusterBounds(
+            indices.as_ptr(),
+            indices.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        )
+    }
+}
+
+/// Creates bounding volumes that can be used for frustum, backface and occlusion culling.
+///
+/// For backface culling with orthographic projection, use the following formula to reject backfacing clusters:
+///   `dot(view, cone_axis) >= cone_cutoff`
+///
+/// For perspective projection, use the following formula that needs cone apex in addition to axis & cutoff:
+///   `dot(normalize(cone_apex - camera_position), cone_axis) >= cone_cutoff`
+///
+/// Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:
+///   `dot(normalize(center - camera_position), cone_axis) >= cone_cutoff + radius / length(center - camera_position)`
+///
+/// or an equivalent formula that doesn't have a singularity at center = camera_position:
+///   `dot(center - camera_position, cone_axis) >= cone_cutoff * length(center - camera_position) + radius`
+///
+/// The formula that uses the apex is slightly more accurate but needs the apex; if you are already using bounding sphere
+/// to do frustum/occlusion culling, the formula that doesn't use the apex may be preferable.
+///
+/// `index_count` should be <= 256*3 (the function assumes clusters of limited size)
+pub fn compute_cluster_bounds_decoder<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+) -> Bounds {
     let vertices = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -72,7 +105,24 @@ pub fn compute_cluster_bounds<T: DecodePosition>(indices: &[u32], vertices: &[T]
     }
 }
 
-pub fn compute_meshlet_bounds<T: DecodePosition>(meshlet: &Meshlet, vertices: &[T]) -> Bounds {
+pub fn compute_meshlet_bounds(meshlet: &Meshlet, vertices: &VertexDataAdapter) -> Bounds {
+    let vertex_data = vertices.reader.get_ref();
+    let vertex_data = vertex_data.as_ptr() as *const u8;
+    let positions = unsafe { vertex_data.add(vertices.position_offset) };
+    unsafe {
+        ffi::meshopt_computeMeshletBounds(
+            meshlet,
+            positions as *const f32,
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        )
+    }
+}
+
+pub fn compute_meshlet_bounds_decoder<T: DecodePosition>(
+    meshlet: &Meshlet,
+    vertices: &[T],
+) -> Bounds {
     let vertices = vertices
         .iter()
         .map(|vertex| vertex.decode_position())

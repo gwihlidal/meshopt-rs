@@ -1,5 +1,9 @@
 # Changes
 
+## 0.1.7 (2019-05-19)
+
+* Implemented `VertexDataAdapter` and modified a number of methods to remove a heavy allocation and slow decode. `DecodePosition` is supported through new `*_decoder` methods.
+
 ## 0.1.6 (2019-03-29)
 
 * Fixed usage of VertexStream and adjust data representation.

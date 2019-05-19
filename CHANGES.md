@@ -3,6 +3,7 @@
 ## 0.1.7 (2019-05-19)
 
 * Implemented `VertexDataAdapter` and modified a number of methods to remove a heavy allocation and slow decode. `DecodePosition` is supported through new `*_decoder` methods.
+* Updated to latest meshoptimizer commit (7bf6e425fa158794c3da75684e8f8c7040b97cfa).
 
 ## 0.1.6 (2019-03-29)
 

@@ -37,23 +37,23 @@ travis-ci = { repository = "gwihlidal/meshopt-rs" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-float-cmp = "0.4.0"
+float-cmp = "0.5.0"
 failure = "0.1.5"
 
 [build-dependencies]
 cc = { version = "1.0.37" }
 
 [build-dependencies.bindgen]
-version = "0.49.1"
+version = "0.50.0"
 optional = true
 
 [dev-dependencies]
 tobj = "0.1.7"
-miniz_oxide = "0.2.1"
-rand = "0.6.5"
-libc = "0.2.55"
+miniz_oxide = "0.2.2"
+rand = "0.7.0"
+libc = "0.2.59"
 structopt = "0.2"
-memoffset = "0.3.0"
+memoffset = "0.4.0"
 
 [dev-dependencies.gltf]
 version = "0.12.0"

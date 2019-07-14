@@ -1,5 +1,11 @@
 # Changes
 
+## 0.1.8 (2019-07-14)
+
+* Updated vendoring of meshoptimizer to commit hash `212a35ea9d32ea5e0223105566b3b7deeb06071f`.
+* Updated dependencies.
+* Updated demo stripify code for restart index.
+
 ## 0.1.7 (2019-05-19)
 
 * Implemented `VertexDataAdapter` and modified a number of methods to remove a heavy allocation and slow decode. `DecodePosition` is supported through new `*_decoder` methods.

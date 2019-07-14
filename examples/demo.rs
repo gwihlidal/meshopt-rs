@@ -383,13 +383,15 @@ fn opt_complete(mesh: &mut Mesh) {
     mesh.vertices.resize(final_size, Default::default());
 }
 
-fn stripify(mesh: &Mesh) {
+fn stripify(mesh: &Mesh, use_restart: bool) {
+    let restart_index = if use_restart { 0xffffffff } else { 0x00000000 };
+
     let process_start = Instant::now();
-    let strip = meshopt::stripify(&mesh.indices, mesh.vertices.len()).unwrap();
+    let strip = meshopt::stripify(&mesh.indices, mesh.vertices.len(), restart_index).unwrap();
     let process_elapsed = process_start.elapsed();
 
     let mut copy = mesh.clone();
-    copy.indices = meshopt::unstripify(&strip).unwrap();
+    copy.indices = meshopt::unstripify(&strip, restart_index).unwrap();
 
     assert!(copy.is_valid());
     assert_eq!(mesh, &copy);
@@ -400,7 +402,8 @@ fn stripify(mesh: &Mesh) {
     let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
-    println!("Stripify : ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%) in {:.2} msec",
+    println!("Stripify{}: ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%) in {:.2} msec",
+        if use_restart { "R" } else { " " },
         vcs.acmr,
         vcs.atvr,
         vcs_nv.atvr,
@@ -840,7 +843,9 @@ fn process(path: Option<PathBuf>, export: bool) {
         }
     }
 
-    stripify(&copy);
+    stripify(&copy, false);
+    stripify(&copy, true);
+
     meshlets(&copy);
     shadow(&copy);
 

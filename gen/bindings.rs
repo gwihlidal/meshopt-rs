@@ -180,7 +180,7 @@ extern "C" {
 extern "C" {
     #[doc = " Index buffer encoder"]
     #[doc = " Encodes index data into an array of bytes that is generally much smaller (<1.5 bytes/triangle) and compresses better (<1 bytes/triangle) compared to original."]
-    #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn\'t have enough space"]
+    #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn't have enough space"]
     #[doc = " For maximum efficiency the index buffer being encoded has to be optimized for vertex cache and vertex fetch first."]
     #[doc = ""]
     #[doc = " buffer must contain enough space for the encoded index buffer (use meshopt_encodeIndexBufferBound to compute worst case size)"]
@@ -212,7 +212,7 @@ extern "C" {
 extern "C" {
     #[doc = " Vertex buffer encoder"]
     #[doc = " Encodes vertex data into an array of bytes that is generally smaller and compresses better compared to original."]
-    #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn\'t have enough space"]
+    #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn't have enough space"]
     #[doc = " This function works for a single vertex stream; for multiple vertex streams, call meshopt_encodeVertexBuffer for each stream."]
     #[doc = ""]
     #[doc = " buffer must contain enough space for the encoded vertex buffer (use meshopt_encodeVertexBufferBound to compute worst case size)"]
@@ -246,10 +246,10 @@ extern "C" {
     #[doc = " Experimental: Mesh simplifier"]
     #[doc = " Reduces the number of triangles in the mesh, attempting to preserve mesh appearance as much as possible"]
     #[doc = " The algorithm tries to preserve mesh topology and can stop short of the target goal based on topology constraints or target error."]
-    #[doc = " If not all attributes from the input mesh are required, it\'s recommended to reindex the mesh using meshopt_generateShadowIndexBuffer prior to simplification."]
+    #[doc = " If not all attributes from the input mesh are required, it's recommended to reindex the mesh using meshopt_generateShadowIndexBuffer prior to simplification."]
     #[doc = " Returns the number of indices after simplification, with destination containing new index data"]
     #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
-    #[doc = " If the original vertex data isn\'t required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
+    #[doc = " If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the *source* index buffer (since optimization is iterative, this means index_count elements - *not* target_index_count!)"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
@@ -267,10 +267,10 @@ extern "C" {
 extern "C" {
     #[doc = " Experimental: Mesh simplifier (sloppy)"]
     #[doc = " Reduces the number of triangles in the mesh, sacrificing mesh apperance for simplification performance"]
-    #[doc = " The algorithm doesn\'t preserve mesh topology but is always able to reach target triangle count."]
+    #[doc = " The algorithm doesn't preserve mesh topology but is always able to reach target triangle count."]
     #[doc = " Returns the number of indices after simplification, with destination containing new index data"]
     #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
-    #[doc = " If the original vertex data isn\'t required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
+    #[doc = " If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the target index buffer"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
@@ -286,16 +286,19 @@ extern "C" {
 }
 extern "C" {
     #[doc = " Mesh stripifier"]
-    #[doc = " Converts a previously vertex cache optimized triangle list to triangle strip, stitching strips using restart index"]
+    #[doc = " Converts a previously vertex cache optimized triangle list to triangle strip, stitching strips using restart index or degenerate triangles"]
     #[doc = " Returns the number of indices in the resulting strip, with destination containing new index data"]
     #[doc = " For maximum efficiency the index buffer being converted has to be optimized for vertex cache first."]
+    #[doc = " Using restart indices can result in ~10% smaller index buffers, but on some GPUs restart indices may result in decreased performance."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the target index buffer, worst case can be computed with meshopt_stripifyBound"]
+    #[doc = " restart_index should be 0xffff or 0xffffffff depending on index size, or 0 to use degenerate triangles"]
     pub fn meshopt_stripify(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
         index_count: usize,
         vertex_count: usize,
+        restart_index: ::std::os::raw::c_uint,
     ) -> usize;
 }
 extern "C" {
@@ -311,6 +314,7 @@ extern "C" {
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
         index_count: usize,
+        restart_index: ::std::os::raw::c_uint,
     ) -> usize;
 }
 extern "C" {
@@ -395,7 +399,7 @@ extern "C" {
     #[doc = " For maximum efficiency the index buffer being converted has to be optimized for vertex cache first."]
     #[doc = ""]
     #[doc = " destination must contain enough space for all meshlets, worst case size can be computed with meshopt_buildMeshletsBound"]
-    #[doc = " max_vertices and max_triangles can\'t exceed limits statically declared in meshopt_Meshlet (max_vertices <= 64, max_triangles <= 126)"]
+    #[doc = " max_vertices and max_triangles can't exceed limits statically declared in meshopt_Meshlet (max_vertices <= 64, max_triangles <= 126)"]
     pub fn meshopt_buildMeshlets(
         destination: *mut meshopt_Meshlet,
         indices: *const ::std::os::raw::c_uint,
@@ -433,13 +437,13 @@ extern "C" {
     #[doc = " For perspective projection, you can the formula that needs cone apex in addition to axis & cutoff:"]
     #[doc = "   dot(normalize(cone_apex - camera_position), cone_axis) >= cone_cutoff"]
     #[doc = ""]
-    #[doc = " Alternatively, you can use the formula that doesn\'t need cone apex and uses bounding sphere instead:"]
+    #[doc = " Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:"]
     #[doc = "   dot(normalize(center - camera_position), cone_axis) >= cone_cutoff + radius / length(center - camera_position)"]
-    #[doc = " or an equivalent formula that doesn\'t have a singularity at center = camera_position:"]
+    #[doc = " or an equivalent formula that doesn't have a singularity at center = camera_position:"]
     #[doc = "   dot(center - camera_position, cone_axis) >= cone_cutoff * length(center - camera_position) + radius"]
     #[doc = ""]
     #[doc = " The formula that uses the apex is slightly more accurate but needs the apex; if you are already using bounding sphere"]
-    #[doc = " to do frustum/occlusion culling, the formula that doesn\'t use the apex may be preferable."]
+    #[doc = " to do frustum/occlusion culling, the formula that doesn't use the apex may be preferable."]
     #[doc = ""]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
     #[doc = " index_count should be less than or equal to 256*3 (the function assumes clusters of limited size)"]
@@ -466,10 +470,8 @@ extern "C" {
     #[doc = " allocate/deallocate are always called in a stack-like order - last pointer to be allocated is deallocated first."]
     pub fn meshopt_setAllocator(
         allocate: ::std::option::Option<
-            unsafe extern "C" fn(allocate: usize) -> *mut ::std::os::raw::c_void,
+            unsafe extern "C" fn(arg1: usize) -> *mut ::std::os::raw::c_void,
         >,
-        deallocate: ::std::option::Option<
-            unsafe extern "C" fn(allocate: *mut ::std::os::raw::c_void),
-        >,
+        deallocate: ::std::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
     );
 }

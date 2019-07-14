@@ -5,7 +5,10 @@ use crate::{ffi, Error, Result};
 ///
 /// For maximum efficiency the index buffer being converted has to be
 /// optimized for vertex cache first.
-pub fn stripify(indices: &[u32], vertex_count: usize) -> Result<Vec<u32>> {
+///
+/// The `restart_index` should be 0xffff or 0xffffffff depending on index size,
+/// or 0 to use degenerate triangles.
+pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Result<Vec<u32>> {
     let mut result: Vec<u32> = vec![0; indices.len() / 3 * 4];
     let index_count = unsafe {
         ffi::meshopt_stripify(
@@ -13,6 +16,7 @@ pub fn stripify(indices: &[u32], vertex_count: usize) -> Result<Vec<u32>> {
             indices.as_ptr() as *const ::std::os::raw::c_uint,
             indices.len(),
             vertex_count,
+            restart_index,
         )
     };
     if index_count <= result.len() {
@@ -24,13 +28,14 @@ pub fn stripify(indices: &[u32], vertex_count: usize) -> Result<Vec<u32>> {
 }
 
 /// Converts a triangle strip to a triangle list
-pub fn unstripify(indices: &[u32]) -> Result<Vec<u32>> {
+pub fn unstripify(indices: &[u32], restart_index: u32) -> Result<Vec<u32>> {
     let mut result: Vec<u32> = vec![0; (indices.len() - 2) * 3];
     let index_count = unsafe {
         ffi::meshopt_unstripify(
             result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
             indices.as_ptr() as *const ::std::os::raw::c_uint,
             indices.len(),
+            restart_index,
         )
     };
     if index_count <= result.len() {

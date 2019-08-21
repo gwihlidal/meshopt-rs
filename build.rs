@@ -11,6 +11,7 @@ fn main() {
 
     // Add the files we build
     let source_files = [
+        "vendor/src/allocator.cpp",
         "vendor/src/clusterizer.cpp",
         "vendor/src/indexcodec.cpp",
         "vendor/src/indexgenerator.cpp",

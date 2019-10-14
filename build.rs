@@ -45,7 +45,7 @@ fn main() {
         // In webassembly there's no stdlib, so we use
         // our own stripped down headers to provide the few
         // functions needed via LLVM intrinsics.
-        build.include("include_wasm32");
+        build.flag("-isystem").flag("include_wasm32");
         // The Wasm backend needs a compatible ar
         // which will most likely be available under
         // this name on Windows, via manual LLVM install

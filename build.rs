@@ -18,6 +18,7 @@ fn main() {
         "vendor/src/overdrawanalyzer.cpp",
         "vendor/src/overdrawoptimizer.cpp",
         "vendor/src/simplifier.cpp",
+        "vendor/src/spatialorder.cpp",
         "vendor/src/stripifier.cpp",
         "vendor/src/vcacheanalyzer.cpp",
         "vendor/src/vcacheoptimizer.cpp",

@@ -41,6 +41,20 @@ fn main() {
         build.flag("-std=c++11").cpp_link_stdlib("stdc++").cpp(true);
     }
 
+    if target.starts_with("wasm32") {
+        // In webassembly there's no stdlib, so we use
+        // our own stripped down headers to provide the few
+        // functions needed via LLVM intrinsics.
+        build.flag("-isystem").flag("include_wasm32");
+        // The Wasm backend needs a compatible ar
+        // which will most likely be available under
+        // this name on Windows, via manual LLVM install
+        let host = env::var("HOST").unwrap();
+        if host.contains("windows") {
+            build.archiver("llvm-ar");
+        }
+    }
+
     build.compile("meshopt_cpp");
 
     generate_bindings("gen/bindings.rs");

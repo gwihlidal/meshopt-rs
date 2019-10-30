@@ -24,6 +24,7 @@ include = [
     "vendor/src/overdrawanalyzer.cpp",
     "vendor/src/overdrawoptimizer.cpp",
     "vendor/src/simplifier.cpp",
+    "vendor/src/spatialorder.cpp",
     "vendor/src/stripifier.cpp",
     "vendor/src/vcacheanalyzer.cpp",
     "vendor/src/vcacheoptimizer.cpp",
@@ -38,26 +39,26 @@ travis-ci = { repository = "gwihlidal/meshopt-rs" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-float-cmp = "0.5.0"
-failure = "0.1.5"
+float-cmp = "0.5.2"
+failure = "0.1.6"
 
 [build-dependencies]
-cc = { version = "1.0.37" }
+cc = { version = "1.0.45" }
 
 [build-dependencies.bindgen]
-version = "0.50.0"
+version = "0.51.1"
 optional = true
 
 [dev-dependencies]
-tobj = "0.1.7"
-miniz_oxide = "0.2.2"
-rand = "0.7.0"
-libc = "0.2.59"
-structopt = "0.2"
-memoffset = "0.5.0"
+tobj = "0.1.11"
+miniz_oxide = "0.3.3"
+rand = "0.7.2"
+libc = "0.2.62"
+structopt = "0.3.3"
+memoffset = "0.5.1"
 
 [dev-dependencies.gltf]
-version = "0.12.0"
+version = "0.14.0"
 features = ["extras", "names"]
 
 [profile.release]

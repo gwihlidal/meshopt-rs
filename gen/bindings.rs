@@ -26,7 +26,7 @@ extern "C" {
     ) -> usize;
 }
 extern "C" {
-    #[doc = " Experimental: Generates a vertex remap table from multiple vertex streams and an optional index buffer and returns number of unique vertices"]
+    #[doc = " Generates a vertex remap table from multiple vertex streams and an optional index buffer and returns number of unique vertices"]
     #[doc = " As a result, all vertices that are binary equivalent map to the same (new) location, with no gaps in the resulting sequence."]
     #[doc = " Resulting remap table maps old vertices to new vertices and can be used in meshopt_remapVertexBuffer/meshopt_remapIndexBuffer."]
     #[doc = " To remap vertex buffers, you will need to call meshopt_remapVertexBuffer for each vertex stream."]
@@ -68,7 +68,7 @@ extern "C" {
     );
 }
 extern "C" {
-    #[doc = " Experimental: Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary"]
+    #[doc = " Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary"]
     #[doc = " All vertices that are binary equivalent (wrt first vertex_size bytes) map to the first vertex in the original vertex buffer."]
     #[doc = " This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original index buffer for regular rendering."]
     #[doc = ""]
@@ -84,7 +84,7 @@ extern "C" {
     );
 }
 extern "C" {
-    #[doc = " Experimental: Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary"]
+    #[doc = " Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary"]
     #[doc = " All vertices that are binary equivalent (wrt specified streams) map to the first vertex in the original vertex buffer."]
     #[doc = " This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original index buffer for regular rendering."]
     #[doc = ""]
@@ -285,6 +285,23 @@ extern "C" {
     ) -> usize;
 }
 extern "C" {
+    #[doc = " Experimental: Point cloud simplifier"]
+    #[doc = " Reduces the number of points in the cloud to reach the given target"]
+    #[doc = " Returns the number of points after simplification, with destination containing new index data"]
+    #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
+    #[doc = " If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the target index buffer"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    pub fn meshopt_simplifyPoints(
+        destination: *mut ::std::os::raw::c_uint,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+        target_vertex_count: usize,
+    ) -> usize;
+}
+extern "C" {
     #[doc = " Mesh stripifier"]
     #[doc = " Converts a previously vertex cache optimized triangle list to triangle strip, stitching strips using restart index or degenerate triangles"]
     #[doc = " Returns the number of indices in the resulting strip, with destination containing new index data"]
@@ -464,7 +481,36 @@ extern "C" {
     ) -> meshopt_Bounds;
 }
 extern "C" {
-    #[doc = " Experimental: Set allocation callbacks"]
+    #[doc = " Experimental: Spatial sorter"]
+    #[doc = " Generates a remap table that can be used to reorder points for spatial locality."]
+    #[doc = " Resulting remap table maps old vertices to new vertices and can be used in meshopt_remapVertexBuffer."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the resulting remap table (vertex_count elements)"]
+    pub fn meshopt_spatialSortRemap(
+        destination: *mut ::std::os::raw::c_uint,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+    );
+}
+extern "C" {
+    #[doc = " Experimental: Spatial sorter"]
+    #[doc = " Reorders triangles for spatial locality, and generates a new index buffer. The resulting index buffer can be used with other functions like optimizeVertexCache."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
+    #[doc = " indices must contain index data that is the result of meshopt_optimizeVertexCache (*not* the original mesh indices!)"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    pub fn meshopt_spatialSortTriangles(
+        destination: *mut ::std::os::raw::c_uint,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+    );
+}
+extern "C" {
+    #[doc = " Set allocation callbacks"]
     #[doc = " These callbacks will be used instead of the default operator new/operator delete for all temporary allocations in the library."]
     #[doc = " Note that all algorithms only allocate memory for temporary use."]
     #[doc = " allocate/deallocate are always called in a stack-like order - last pointer to be allocated is deallocated first."]

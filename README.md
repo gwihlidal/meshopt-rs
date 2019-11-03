@@ -23,7 +23,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-meshopt = "0.1.8"
+meshopt = "0.1.9"
 ```
 
 and add this to your crate root:
@@ -160,6 +160,10 @@ at your option.
 - [Jake Shadle](https://github.com/Jake-Shadle) (Code review)
 - [Thomas Herzog](https://github.com/karroffel) (Contributions)
 - [Alexandru Ene](https://github.com/AlexEne) (Contributions)
+- [Ralf Jung](https://github.com/RalfJung) (Contributions)
+- [Maxime Rouyrre](https://github.com/blaze33) (Contributions)
+- [Shiwei Wang](https://github.com/wsw0108) (Contributions)
+- Simon Chopin (Contributions)
 
 ## Contribution
 

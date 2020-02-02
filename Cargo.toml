@@ -31,6 +31,7 @@ include = [
     "vendor/src/vertexcodec.cpp",
     "vendor/src/vfetchanalyzer.cpp",
     "vendor/src/vfetchoptimizer.cpp",
+    "include_wasm32/*.h",
 ]
 edition = "2018"
 

@@ -44,10 +44,10 @@ float-cmp = "0.5.3"
 failure = "0.1.6"
 
 [build-dependencies]
-cc = { version = "1.0.46" }
+cc = { version = "1.0" }
 
 [build-dependencies.bindgen]
-version = "0.51.1"
+version = "0.59"
 optional = true
 
 [dev-dependencies]
@@ -68,4 +68,4 @@ opt-level = 3
 codegen-units = 1
 
 [features]
-generate_bindings=["bindgen"]
+generate_bindings = ["bindgen"]

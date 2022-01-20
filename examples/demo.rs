@@ -87,7 +87,14 @@ impl Mesh {
     }
 
     fn load_obj(path: &Path) -> Self {
-        let obj = tobj::load_obj(path);
+        let obj = tobj::load_obj(
+            path,
+            &tobj::LoadOptions {
+                triangulate: true,
+                single_index: true,
+                ..Default::default()
+            },
+        );
         assert!(obj.is_ok());
         let (models, _materials) = obj.unwrap();
 

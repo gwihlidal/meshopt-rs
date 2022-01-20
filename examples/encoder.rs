@@ -45,8 +45,14 @@ fn main() {
         println!("Encoding {:?}", &options.input);
     }
 
-    let obj_file = tobj::load_obj(&options.input);
-    assert!(obj_file.is_ok());
+    let obj_file = tobj::load_obj(
+        &options.input,
+        &tobj::LoadOptions {
+            triangulate: true,
+            single_index: true,
+            ..Default::default()
+        },
+    );
     let (models, materials) = obj_file.unwrap();
 
     let mut merged_positions: Vec<f32> = Vec::new();

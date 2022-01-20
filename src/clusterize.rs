@@ -7,7 +7,7 @@ pub type Meshlet = ffi::meshopt_Meshlet;
 /// Splits the mesh into a set of meshlets where each meshlet has a micro index buffer
 /// indexing into meshlet vertices that refer to the original vertex buffer.
 ///
-/// The resulting data can be used to render meshes using NVidia programmable mesh shading
+/// The resulting data can be used to render meshes using `NVidia programmable mesh shading`
 /// pipeline, or in other cluster-based renderers.
 ///
 /// For maximum efficiency the index buffer being converted has to be optimized for vertex
@@ -48,14 +48,14 @@ pub fn build_meshlets(
 /// Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:
 ///   `dot(normalize(center - camera_position), cone_axis) >= cone_cutoff + radius / length(center - camera_position)`
 ///
-/// or an equivalent formula that doesn't have a singularity at center = camera_position:
+/// or an equivalent formula that doesn't have a singularity at `center = camera_position`:
 ///   `dot(center - camera_position, cone_axis) >= cone_cutoff * length(center - camera_position) + radius`
 ///
 /// The formula that uses the apex is slightly more accurate but needs the apex; if you are already using bounding sphere
 /// to do frustum/occlusion culling, the formula that doesn't use the apex may be preferable.
 ///
 /// `index_count` should be <= 256*3 (the function assumes clusters of limited size)
-pub fn compute_cluster_bounds(indices: &[u32], vertices: &VertexDataAdapter) -> Bounds {
+pub fn compute_cluster_bounds(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Bounds {
     unsafe {
         ffi::meshopt_computeClusterBounds(
             indices.as_ptr(),
@@ -78,7 +78,7 @@ pub fn compute_cluster_bounds(indices: &[u32], vertices: &VertexDataAdapter) -> 
 /// Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:
 ///   `dot(normalize(center - camera_position), cone_axis) >= cone_cutoff + radius / length(center - camera_position)`
 ///
-/// or an equivalent formula that doesn't have a singularity at center = camera_position:
+/// or an equivalent formula that doesn't have a singularity at `center = camera_position`:
 ///   `dot(center - camera_position, cone_axis) >= cone_cutoff * length(center - camera_position) + radius`
 ///
 /// The formula that uses the apex is slightly more accurate but needs the apex; if you are already using bounding sphere
@@ -93,26 +93,25 @@ pub fn compute_cluster_bounds_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
-    let positions = vertices.as_ptr() as *const f32;
     unsafe {
         ffi::meshopt_computeClusterBounds(
             indices.as_ptr(),
             indices.len(),
-            positions,
+            vertices.as_ptr().cast(),
             vertices.len() * 3,
             ::std::mem::size_of::<f32>() * 3,
         )
     }
 }
 
-pub fn compute_meshlet_bounds(meshlet: &Meshlet, vertices: &VertexDataAdapter) -> Bounds {
+pub fn compute_meshlet_bounds(meshlet: &Meshlet, vertices: &VertexDataAdapter<'_>) -> Bounds {
     let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr() as *const u8;
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
     let positions = unsafe { vertex_data.add(vertices.position_offset) };
     unsafe {
         ffi::meshopt_computeMeshletBounds(
             meshlet,
-            positions as *const f32,
+            positions.cast(),
             vertices.vertex_count,
             vertices.vertex_stride,
         )
@@ -127,13 +126,12 @@ pub fn compute_meshlet_bounds_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
-    let positions = vertices.as_ptr() as *const f32;
     unsafe {
         ffi::meshopt_computeMeshletBounds(
             meshlet,
-            positions,
+            vertices.as_ptr().cast(),
             vertices.len() * 3,
-            ::std::mem::size_of::<f32>() * 3,
+            std::mem::size_of::<f32>() * 3,
         )
     }
 }

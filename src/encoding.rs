@@ -11,9 +11,9 @@ pub fn encode_index_buffer(indices: &[u32], vertex_count: usize) -> Result<Vec<u
     let mut result: Vec<u8> = vec![0; bounds];
     let size = unsafe {
         ffi::meshopt_encodeIndexBuffer(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
+            result.as_mut_ptr(),
             result.len(),
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.as_ptr(),
             indices.len(),
         )
     };
@@ -62,9 +62,9 @@ pub fn encode_vertex_buffer<T>(vertices: &[T]) -> Result<Vec<u8>> {
     let mut result: Vec<u8> = vec![0; bounds];
     let size = unsafe {
         ffi::meshopt_encodeVertexBuffer(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
+            result.as_mut_ptr(),
             result.len(),
-            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            vertices.as_ptr().cast(),
             vertices.len(),
             mem::size_of::<T>(),
         )
@@ -82,10 +82,10 @@ pub fn decode_vertex_buffer<T: Clone + Default>(
     let mut result: Vec<T> = vec![Default::default(); vertex_count];
     let result_code = unsafe {
         ffi::meshopt_decodeVertexBuffer(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_void,
+            result.as_mut_ptr().cast(),
             vertex_count,
             mem::size_of::<T>(),
-            encoded.as_ptr() as *const ::std::os::raw::c_uchar,
+            encoded.as_ptr(),
             encoded.len(),
         )
     };

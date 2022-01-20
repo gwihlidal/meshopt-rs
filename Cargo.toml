@@ -33,7 +33,7 @@ include = [
     "vendor/src/vfetchoptimizer.cpp",
     "include_wasm32/*.h",
 ]
-edition = "2018"
+edition = "2021"
 
 [badges]
 travis-ci = { repository = "gwihlidal/meshopt-rs" }

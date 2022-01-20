@@ -1,5 +1,4 @@
-use crate::ffi;
-use crate::{DecodePosition, VertexDataAdapter};
+use crate::{ffi, DecodePosition, VertexDataAdapter};
 use std::mem;
 
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh
@@ -11,20 +10,20 @@ use std::mem;
 /// using `optimize_vertex_fetch` is recommended.
 pub fn simplify(
     indices: &[u32],
-    vertices: &VertexDataAdapter,
+    vertices: &VertexDataAdapter<'_>,
     target_count: usize,
     target_error: f32,
 ) -> Vec<u32> {
     let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr() as *const u8;
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
     let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplify(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
             indices.len(),
-            positions as *const f32,
+            positions.cast::<f32>(),
             vertices.vertex_count,
             vertices.vertex_stride,
             target_count,
@@ -55,10 +54,10 @@ pub fn simplify_decoder<T: DecodePosition>(
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplify(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
             indices.len(),
-            positions.as_ptr() as *const f32,
+            positions.as_ptr().cast(),
             positions.len(),
             mem::size_of::<f32>() * 3,
             target_count,
@@ -78,19 +77,19 @@ pub fn simplify_decoder<T: DecodePosition>(
 /// is recommended.
 pub fn simplify_sloppy(
     indices: &[u32],
-    vertices: &VertexDataAdapter,
+    vertices: &VertexDataAdapter<'_>,
     target_count: usize,
 ) -> Vec<u32> {
     let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr() as *const u8;
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
     let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
             indices.len(),
-            positions as *const f32,
+            positions.cast(),
             vertices.vertex_count,
             vertices.vertex_stride,
             target_count,
@@ -119,10 +118,10 @@ pub fn simplify_sloppy_decoder<T: DecodePosition>(
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
             indices.len(),
-            positions.as_ptr() as *const f32,
+            positions.as_ptr().cast(),
             positions.len(),
             mem::size_of::<f32>() * 3,
             target_count,

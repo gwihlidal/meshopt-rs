@@ -1,5 +1,4 @@
-use crate::ffi;
-use crate::{DecodePosition, VertexDataAdapter};
+use crate::{ffi, DecodePosition, VertexDataAdapter};
 use std::mem;
 
 /// Reorders indices to reduce the number of GPU vertex shader invocations.
@@ -10,8 +9,8 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
     let mut optimized: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_optimizeVertexCache(
-            optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            optimized.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
             vertex_count,
         );
@@ -23,11 +22,11 @@ pub fn optimize_vertex_cache(indices: &[u32], vertex_count: usize) -> Vec<u32> {
 ///
 /// If index buffer contains multiple ranges for multiple draw calls,
 /// this function needs to be called on each range individually.
-pub fn optimize_vertex_cache_in_place(indices: &[u32], vertex_count: usize) {
+pub fn optimize_vertex_cache_in_place(indices: &mut [u32], vertex_count: usize) {
     unsafe {
         ffi::meshopt_optimizeVertexCache(
-            indices.as_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
             vertex_count,
         );
@@ -51,8 +50,8 @@ pub fn optimize_vertex_cache_fifo(
     let mut optimized: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_optimizeVertexCacheFifo(
-            optimized.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            optimized.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
             vertex_count,
             cache_size,
@@ -77,8 +76,8 @@ pub fn optimize_vertex_cache_fifo_in_place(
 ) {
     unsafe {
         ffi::meshopt_optimizeVertexCacheFifo(
-            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
             vertex_count,
             cache_size,
@@ -97,10 +96,10 @@ pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: 
     let mut result: Vec<T> = vec![T::default(); vertices.len()];
     let next_vertex = unsafe {
         ffi::meshopt_optimizeVertexFetch(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_void,
-            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_mut_ptr(),
             indices.len(),
-            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            vertices.as_ptr().cast(),
             vertices.len(),
             mem::size_of::<T>(),
         )
@@ -120,10 +119,10 @@ pub fn optimize_vertex_fetch<T: Clone + Default>(indices: &mut [u32], vertices: 
 pub fn optimize_vertex_fetch_in_place<T>(indices: &mut [u32], vertices: &mut [T]) -> usize {
     unsafe {
         ffi::meshopt_optimizeVertexFetch(
-            vertices.as_mut_ptr() as *mut ::std::os::raw::c_void,
-            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
+            vertices.as_mut_ptr().cast(),
+            indices.as_mut_ptr(),
             indices.len(),
-            vertices.as_ptr() as *const ::std::os::raw::c_void,
+            vertices.as_ptr().cast(),
             vertices.len(),
             mem::size_of::<T>(),
         )
@@ -139,8 +138,8 @@ pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<
     let mut result: Vec<u32> = vec![0; vertex_count];
     let next_vertex = unsafe {
         ffi::meshopt_optimizeVertexFetchRemap(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
             vertex_count,
         )
@@ -157,16 +156,20 @@ pub fn optimize_vertex_fetch_remap(indices: &[u32], vertex_count: usize) -> Vec<
 ///
 /// `threshold` indicates how much the overdraw optimizer can degrade vertex cache
 /// efficiency (1.05 = up to 5%) to reduce overdraw more efficiently.
-pub fn optimize_overdraw_in_place(indices: &[u32], vertices: &VertexDataAdapter, threshold: f32) {
+pub fn optimize_overdraw_in_place(
+    indices: &mut [u32],
+    vertices: &VertexDataAdapter<'_>,
+    threshold: f32,
+) {
     let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr() as *const u8;
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
     let positions = unsafe { vertex_data.add(vertices.position_offset) };
     unsafe {
         ffi::meshopt_optimizeOverdraw(
-            indices.as_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
-            positions as *const f32,
+            positions.cast(),
             vertices.vertex_count,
             vertices.vertex_stride,
             threshold,
@@ -193,10 +196,10 @@ pub fn optimize_overdraw_in_place_decoder<T: DecodePosition>(
         .collect::<Vec<[f32; 3]>>();
     unsafe {
         ffi::meshopt_optimizeOverdraw(
-            indices.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            indices.as_mut_ptr(),
+            indices.as_ptr(),
             indices.len(),
-            positions.as_ptr() as *const f32,
+            positions.as_ptr().cast(),
             positions.len(),
             mem::size_of::<f32>() * 3,
             threshold,

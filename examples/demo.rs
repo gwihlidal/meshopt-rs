@@ -1,18 +1,16 @@
-extern crate libc;
-extern crate meshopt;
-extern crate miniz_oxide;
-extern crate rand;
-extern crate tobj;
-#[macro_use]
-extern crate memoffset;
+#![allow(clippy::identity_op)]
 
+use memoffset::offset_of;
 use meshopt::*;
 use rand::{seq::SliceRandom, thread_rng};
-use std::fs::File;
-use std::io::prelude::*;
-use std::mem;
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::{
+    fmt,
+    fs::File,
+    io::Write,
+    mem,
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 
 const CACHE_SIZE: usize = 16;
 
@@ -20,24 +18,23 @@ fn elapsed_to_ms(elapsed: Duration) -> f32 {
     elapsed.subsec_nanos() as f32 / 1_000_000.0 + elapsed.as_secs() as f32 * 1_000.0
 }
 
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
+#[derive(Default, Debug, Copy, Clone)]
 #[repr(C)]
 struct Triangle {
     v: [Vertex; 3],
 }
 
 impl Triangle {
-    #[allow(dead_code)]
     fn rotate(&mut self) -> bool {
         if self.v[1] < self.v[2] && self.v[0] > self.v[1] {
             // 1 is minimum, rotate 012 => 120
-            let tv = self.v[0].clone();
+            let tv = self.v[0];
             self.v[0] = self.v[1];
             self.v[1] = self.v[2];
             self.v[2] = tv;
         } else if self.v[0] > self.v[2] && self.v[1] > self.v[2] {
             // 2 is minimum, rotate 012 => 201
-            let tv = self.v[2].clone();
+            let tv = self.v[2];
             self.v[2] = self.v[1];
             self.v[1] = self.v[0];
             self.v[0] = tv;
@@ -47,14 +44,28 @@ impl Triangle {
 }
 
 impl Ord for Triangle {
-    fn cmp(&self, other: &Triangle) -> ::std::cmp::Ordering {
-        let lhs = meshopt::utilities::any_as_u8_slice(&self);
-        let rhs = meshopt::utilities::any_as_u8_slice(&other);
-        lhs.cmp(&rhs)
+    fn cmp(&self, other: &Triangle) -> std::cmp::Ordering {
+        let lhs = meshopt::utilities::any_as_u8_slice(self);
+        let rhs = meshopt::utilities::any_as_u8_slice(other);
+        lhs.cmp(rhs)
     }
 }
 
-#[derive(Default, Debug, Clone)]
+impl PartialOrd for Triangle {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Triangle {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl Eq for Triangle {}
+
+#[derive(Default, Clone)]
 struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
@@ -71,6 +82,17 @@ impl PartialEq for Mesh {
 }
 
 impl Eq for Mesh {}
+
+impl fmt::Debug for Mesh {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "vertices: {}, indices: {}",
+            self.vertices.len(),
+            self.indices.len()
+        )
+    }
+}
 
 impl Mesh {
     fn is_valid(&self) -> bool {
@@ -183,19 +205,19 @@ impl Mesh {
         let mut buffer = File::create(path)?;
 
         for i in 0..self.vertices.len() {
-            write!(
+            writeln!(
                 buffer,
-                "v {} {} {}\n",
+                "v {} {} {}",
                 self.vertices[i].p[0], self.vertices[i].p[1], self.vertices[i].p[2]
             )?;
-            write!(
+            writeln!(
                 buffer,
-                "vn {} {} {}\n",
+                "vn {} {} {}",
                 self.vertices[i].n[0], self.vertices[i].n[1], self.vertices[i].n[2]
             )?;
-            write!(
+            writeln!(
                 buffer,
-                "vt {} {} {}\n",
+                "vt {} {} {}",
                 self.vertices[i].t[0], self.vertices[i].t[1], 0f32
             )?;
         }
@@ -204,9 +226,9 @@ impl Mesh {
             let i0 = self.indices[i + 0] + 1;
             let i1 = self.indices[i + 1] + 1;
             let i2 = self.indices[i + 2] + 1;
-            write!(
+            writeln!(
                 buffer,
-                "f {}/{}/{} {}/{}/{} {}/{}/{}\n",
+                "f {}/{}/{} {}/{}/{} {}/{}/{}",
                 i0, i0, i0, i1, i1, i1, i2, i2, i2
             )?;
         }
@@ -260,9 +282,9 @@ impl Mesh {
             let i2 = self.indices[i * 3 + 2];
             let mut tri = Triangle {
                 v: [
-                    self.vertices[i0 as usize].clone(),
-                    self.vertices[i1 as usize].clone(),
-                    self.vertices[i2 as usize].clone(),
+                    self.vertices[i0 as usize],
+                    self.vertices[i1 as usize],
+                    self.vertices[i2 as usize],
                 ],
             };
 
@@ -275,10 +297,22 @@ impl Mesh {
         result
     }
 
+    fn split(&mut self) -> (VertexDataAdapter, &mut [u32]) {
+        let position_offset = offset_of!(Vertex, p);
+        let vertex_stride = std::mem::size_of::<Vertex>();
+        let vertex_data = typed_to_bytes(&self.vertices);
+        (
+            VertexDataAdapter::new(vertex_data, vertex_stride, position_offset)
+                .expect("failed to create vertex data reader"),
+            &mut self.indices,
+        )
+    }
+
     fn vertex_adapter(&self) -> VertexDataAdapter {
         let position_offset = offset_of!(Vertex, p);
         let vertex_stride = std::mem::size_of::<Vertex>();
         let vertex_data = typed_to_bytes(&self.vertices);
+
         VertexDataAdapter::new(vertex_data, vertex_stride, position_offset)
             .expect("failed to create vertex data reader")
     }
@@ -330,7 +364,7 @@ fn opt_none(_: &mut Mesh) {
 
 fn opt_random_shuffle(mesh: &mut Mesh) {
     let face_count = mesh.indices.len() / 3;
-    let mut faces: Vec<usize> = (0..face_count).map(|x| x).collect();
+    let mut faces: Vec<usize> = (0..face_count).collect();
     let mut rng = thread_rng();
     faces.shuffle(&mut rng);
 
@@ -357,12 +391,12 @@ fn opt_cache_fifo(mesh: &mut Mesh) {
 }
 
 fn opt_overdraw(mesh: &mut Mesh) {
-    let vertex_adapter = mesh.vertex_adapter();
+    let (vertex_adapter, indices) = mesh.split();
 
     // use worst-case ACMR threshold so that overdraw optimizer can sort *all* triangles
     // warning: this significantly deteriorates the vertex cache efficiency so it is not advised; look at `opt_complete` for the recommended method
     let threshold = 3f32;
-    meshopt::optimize_overdraw_in_place(&mesh.indices, &vertex_adapter, threshold);
+    meshopt::optimize_overdraw_in_place(indices, &vertex_adapter, threshold);
 }
 
 fn opt_fetch(mesh: &mut Mesh) {
@@ -376,14 +410,16 @@ fn opt_fetch_remap(mesh: &mut Mesh) {
 }
 
 fn opt_complete(mesh: &mut Mesh) {
-    let vertex_adapter = mesh.vertex_adapter();
+    {
+        let (vertex_adapter, indices) = mesh.split();
 
-    // vertex cache optimization should go first as it provides starting order for overdraw
-    meshopt::optimize_vertex_cache_in_place(&mesh.indices, mesh.vertices.len());
+        // vertex cache optimization should go first as it provides starting order for overdraw
+        meshopt::optimize_vertex_cache_in_place(indices, vertex_adapter.vertex_count);
 
-    // reorder indices for overdraw, balancing overdraw and vertex cache efficiency
-    let threshold = 1.05f32; // allow up to 5% worse ACMR to get more reordering opportunities for overdraw
-    meshopt::optimize_overdraw_in_place(&mesh.indices, &vertex_adapter, threshold);
+        // reorder indices for overdraw, balancing overdraw and vertex cache efficiency
+        let threshold = 1.05f32; // allow up to 5% worse ACMR to get more reordering opportunities for overdraw
+        meshopt::optimize_overdraw_in_place(indices, &vertex_adapter, threshold);
+    }
 
     // vertex fetch optimization should go last as it depends on the final index order
     let final_size = meshopt::optimize_vertex_fetch_in_place(&mut mesh.indices, &mut mesh.vertices);
@@ -509,14 +545,14 @@ fn meshlets(mesh: &Mesh) {
 
     let test_start = Instant::now();
     for meshlet in &meshlets {
-        let bounds = meshopt::compute_meshlet_bounds(&meshlet, &vertex_adapter);
+        let bounds = meshopt::compute_meshlet_bounds(meshlet, &vertex_adapter);
 
         // trivial accept: we can't ever backface cull this meshlet
         if bounds.cone_cutoff >= 1f32 {
             accepted += 1;
         }
 
-        if bounds.cone_cutoff_s8 >= 127 {
+        if bounds.cone_cutoff_s8 == 127 {
             accepted_s8 += 1;
         }
 
@@ -603,6 +639,7 @@ fn simplify(mesh: &Mesh) {
     // note that each LOD uses the same (shared) vertex buffer
     let mut lods: Vec<Vec<u32>> = Vec::with_capacity(lod_count);
     lods.push(mesh.indices.clone());
+
     for i in 1..lod_count {
         let threshold = 0.7f32.powf(i as f32);
         let target_index_count = (mesh.indices.len() as f32 * threshold) as usize / 3 * 3;
@@ -613,7 +650,7 @@ fn simplify(mesh: &Mesh) {
             // simplifying from the base level sometimes produces better results, but simplifying from last level is faster
             let src = &lods[lods.len() - 1];
             lod = meshopt::simplify(
-                &src,
+                src,
                 &vertex_adapter,
                 ::std::cmp::min(src.len(), target_index_count),
                 target_error,
@@ -626,9 +663,9 @@ fn simplify(mesh: &Mesh) {
     let optimize_start = Instant::now();
 
     // optimize each individual LOD for vertex cache & overdraw
-    for mut lod in &mut lods {
-        meshopt::optimize_vertex_cache_in_place(&mut lod, mesh.vertices.len());
-        meshopt::optimize_overdraw_in_place(&mut lod, &vertex_adapter, 1f32);
+    for lod in &mut lods {
+        meshopt::optimize_vertex_cache_in_place(lod, vertex_adapter.vertex_count);
+        meshopt::optimize_overdraw_in_place(lod, &vertex_adapter, 1f32);
     }
 
     // concatenate all LODs into one IB
@@ -813,8 +850,8 @@ fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
 }
 
 fn process(path: Option<PathBuf>, export: bool) {
-    let mesh = match path {
-        Some(ref path) => Mesh::load_obj(&path),
+    let mesh = match &path {
+        Some(path) => Mesh::load_obj(path),
         None => {
             let mesh = Mesh::create_plane(200);
             if export {

@@ -12,8 +12,8 @@ pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Res
     let mut result: Vec<u32> = vec![0; indices.len() / 3 * 4];
     let index_count = unsafe {
         ffi::meshopt_stripify(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
             indices.len(),
             vertex_count,
             restart_index,
@@ -32,8 +32,8 @@ pub fn unstripify(indices: &[u32], restart_index: u32) -> Result<Vec<u32>> {
     let mut result: Vec<u32> = vec![0; (indices.len() - 2) * 3];
     let index_count = unsafe {
         ffi::meshopt_unstripify(
-            result.as_mut_ptr() as *mut ::std::os::raw::c_uint,
-            indices.as_ptr() as *const ::std::os::raw::c_uint,
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
             indices.len(),
             restart_index,
         )

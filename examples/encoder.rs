@@ -1,16 +1,9 @@
-extern crate gltf;
-extern crate meshopt;
-extern crate structopt;
-extern crate tobj;
-
 use meshopt::{
     any_as_u8_slice, quantize_snorm, quantize_unorm, rcp_safe, EncodeHeader, EncodeObject,
     PackedVertex, Vertex,
 };
 
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::PathBuf;
+use std::{fs::File, io::Write, path::PathBuf};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -36,6 +29,7 @@ struct Object {
     index_count: usize,
 }
 
+#[allow(clippy::identity_op)]
 fn main() {
     let options = Options::from_args();
 
@@ -54,6 +48,7 @@ fn main() {
         },
     );
     let (models, materials) = obj_file.unwrap();
+    let materials = materials.unwrap();
 
     let mut merged_positions: Vec<f32> = Vec::new();
     let mut merged_coords: Vec<f32> = Vec::new();
@@ -196,7 +191,7 @@ fn main() {
 
     let mut output = File::create(&options.output).unwrap();
 
-    output.write(any_as_u8_slice(&header)).unwrap();
+    output.write_all(any_as_u8_slice(&header)).unwrap();
 
     for object in &objects {
         let object = EncodeObject {
@@ -205,15 +200,15 @@ fn main() {
             material_length: object.material.len() as u32,
             reserved: 0,
         };
-        output.write(any_as_u8_slice(&object)).unwrap();
+        output.write_all(any_as_u8_slice(&object)).unwrap();
     }
 
     for object in &objects {
-        output.write(object.material.as_bytes()).unwrap();
+        output.write_all(object.material.as_bytes()).unwrap();
     }
 
-    output.write(&encoded_vertices).unwrap();
-    output.write(&encoded_indices).unwrap();
+    output.write_all(&encoded_vertices).unwrap();
+    output.write_all(&encoded_indices).unwrap();
 
     println!("   Serialized encoded mesh to {:?}", &options.output);
 }

@@ -26,12 +26,6 @@ Add this to your `Cargo.toml`:
 meshopt = "0.1.9"
 ```
 
-and add this to your crate root:
-
-```rust
-extern crate meshopt;
-```
-
 ## Example
 
 ### demo

@@ -3,17 +3,15 @@ use std::io::{Cursor, Read};
 
 #[inline(always)]
 pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    unsafe {
-        ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
-    }
+    typed_to_bytes(std::slice::from_ref(p))
 }
 
 #[inline(always)]
-pub fn typed_to_bytes<T>(typed: &[T]) -> &[u8] {
+pub fn typed_to_bytes<T: Sized>(typed: &[T]) -> &[u8] {
     unsafe {
-        ::std::slice::from_raw_parts(
-            typed.as_ptr() as *const u8,
-            typed.len() * ::std::mem::size_of::<T>(),
+        std::slice::from_raw_parts(
+            typed.as_ptr().cast(),
+            typed.len() * std::mem::size_of::<T>(),
         )
     }
 }
@@ -180,10 +178,10 @@ impl<'a> VertexDataAdapter<'a> {
             let vertex_offset = vertex * self.vertex_stride;
             self.reader
                 .set_position((vertex_offset + self.position_offset) as u64);
-            let mut scratch: [u8; 12] = unsafe { std::mem::uninitialized() };
+            let mut scratch = [0u8; 12];
             self.reader.read_exact(&mut scratch)?;
             let position =
-                unsafe { std::slice::from_raw_parts(scratch.as_ptr() as *const f32, 12) };
+                unsafe { std::slice::from_raw_parts(scratch.as_ptr().cast::<f32>(), 12) };
             self.reader.set_position(reader_pos);
             Ok(position)
         }
@@ -191,16 +189,9 @@ impl<'a> VertexDataAdapter<'a> {
 
     pub fn pos_ptr(&self) -> *const f32 {
         let vertex_data = self.reader.get_ref();
-        let vertex_data = vertex_data.as_ptr() as *const u8;
+        let vertex_data = vertex_data.as_ptr().cast::<u8>();
         let positions = unsafe { vertex_data.add(self.position_offset) };
-        positions as *const f32
-    }
-
-    pub fn pos_mut_ptr(&self) -> *mut f32 {
-        let vertex_data = self.reader.get_ref();
-        let vertex_data = vertex_data.as_ptr() as *mut u8;
-        let positions = unsafe { vertex_data.add(self.position_offset) };
-        positions as *mut f32
+        positions.cast()
     }
 }
 

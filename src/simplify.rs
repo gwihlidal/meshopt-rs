@@ -28,6 +28,7 @@ pub fn simplify(
             vertices.vertex_stride,
             target_count,
             target_error,
+            std::ptr::null_mut(),
         )
     };
     result.resize(index_count, 0u32);
@@ -62,6 +63,7 @@ pub fn simplify_decoder<T: DecodePosition>(
             mem::size_of::<f32>() * 3,
             target_count,
             target_error,
+            std::ptr::null_mut(),
         )
     };
     result.resize(index_count, 0u32);
@@ -79,6 +81,7 @@ pub fn simplify_sloppy(
     indices: &[u32],
     vertices: &VertexDataAdapter<'_>,
     target_count: usize,
+    target_error: f32,
 ) -> Vec<u32> {
     let vertex_data = vertices.reader.get_ref();
     let vertex_data = vertex_data.as_ptr().cast::<u8>();
@@ -93,6 +96,8 @@ pub fn simplify_sloppy(
             vertices.vertex_count,
             vertices.vertex_stride,
             target_count,
+            target_error,
+            std::ptr::null_mut(),
         )
     };
     result.resize(index_count, 0u32);
@@ -110,6 +115,7 @@ pub fn simplify_sloppy_decoder<T: DecodePosition>(
     indices: &[u32],
     vertices: &[T],
     target_count: usize,
+    target_error: f32,
 ) -> Vec<u32> {
     let positions = vertices
         .iter()
@@ -125,6 +131,8 @@ pub fn simplify_sloppy_decoder<T: DecodePosition>(
             positions.len(),
             mem::size_of::<f32>() * 3,
             target_count,
+            target_error,
+            std::ptr::null_mut(),
         )
     };
     result.resize(index_count, 0u32);

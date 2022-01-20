@@ -497,14 +497,17 @@ fn shadow(mesh: &Mesh) {
 
 fn meshlets(mesh: &Mesh) {
     let max_vertices = 64;
-    let max_triangles = 126;
+    let max_triangles = 124;
+
+    let vertex_adapter = mesh.vertex_adapter();
 
     let process_start = Instant::now();
     let meshlets = meshopt::build_meshlets(
         &mesh.indices,
-        mesh.vertices.len(),
+        &vertex_adapter,
         max_vertices,
         max_triangles,
+        0.5, // cone weight
     );
     let process_elapsed = process_start.elapsed();
 
@@ -512,9 +515,7 @@ fn meshlets(mesh: &Mesh) {
     let mut avg_triangles = 0f64;
     let mut not_full = 0usize;
 
-    let vertex_adapter = mesh.vertex_adapter();
-
-    for meshlet in &meshlets {
+    for meshlet in &meshlets.meshlets {
         avg_vertices += meshlet.vertex_count as f64;
         avg_triangles += meshlet.triangle_count as f64;
         not_full += if (meshlet.vertex_count as usize) < max_vertices {
@@ -544,7 +545,7 @@ fn meshlets(mesh: &Mesh) {
     let mut accepted_s8 = 0;
 
     let test_start = Instant::now();
-    for meshlet in &meshlets {
+    for meshlet in meshlets.iter() {
         let bounds = meshopt::compute_meshlet_bounds(meshlet, &vertex_adapter);
 
         // trivial accept: we can't ever backface cull this meshlet
@@ -610,20 +611,20 @@ fn meshlets(mesh: &Mesh) {
     let test_elapsed = test_start.elapsed();
 
     println!("ConeCull : rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
-	       rejected,
+           rejected,
            rejected as f64 / (meshlets.len() as f64) * 100.0,
-	       rejected_alt,
+           rejected_alt,
            rejected_alt as f64 / (meshlets.len() as f64) * 100.0,
-	       accepted,
+           accepted,
            accepted as f64 / (meshlets.len() as f64) * 100.0,
-	       elapsed_to_ms(test_elapsed));
+           elapsed_to_ms(test_elapsed));
 
     println!("ConeCull8: rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
-	       rejected_s8,
+           rejected_s8,
            rejected_s8 as f64 / (meshlets.len() as f64) * 100.0,
-	       rejected_alt_s8,
+           rejected_alt_s8,
            rejected_alt_s8 as f64 / (meshlets.len() as f64) * 100.0,
-	       accepted_s8,
+           accepted_s8,
            accepted_s8 as f64 / (meshlets.len() as f64) * 100.0,
            elapsed_to_ms(test_elapsed));
 }

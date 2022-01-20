@@ -13,6 +13,7 @@ extern "C" {
     #[doc = " Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices"]
     #[doc = " As a result, all vertices that are binary equivalent map to the same (new) location, with no gaps in the resulting sequence."]
     #[doc = " Resulting remap table maps old vertices to new vertices and can be used in meshopt_remapVertexBuffer/meshopt_remapIndexBuffer."]
+    #[doc = " Note that binary equivalence considers all vertex_size bytes, including padding which should be zero-initialized."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting remap table (vertex_count elements)"]
     #[doc = " indices can be NULL if the input is unindexed"]
@@ -30,6 +31,7 @@ extern "C" {
     #[doc = " As a result, all vertices that are binary equivalent map to the same (new) location, with no gaps in the resulting sequence."]
     #[doc = " Resulting remap table maps old vertices to new vertices and can be used in meshopt_remapVertexBuffer/meshopt_remapIndexBuffer."]
     #[doc = " To remap vertex buffers, you will need to call meshopt_remapVertexBuffer for each vertex stream."]
+    #[doc = " Note that binary equivalence considers all size bytes in each stream, including padding which should be zero-initialized."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting remap table (vertex_count elements)"]
     #[doc = " indices can be NULL if the input is unindexed"]
@@ -71,6 +73,7 @@ extern "C" {
     #[doc = " Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary"]
     #[doc = " All vertices that are binary equivalent (wrt first vertex_size bytes) map to the first vertex in the original vertex buffer."]
     #[doc = " This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original index buffer for regular rendering."]
+    #[doc = " Note that binary equivalence considers all vertex_size bytes, including padding which should be zero-initialized."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
     pub fn meshopt_generateShadowIndexBuffer(
@@ -87,6 +90,7 @@ extern "C" {
     #[doc = " Generate index buffer that can be used for more efficient rendering when only a subset of the vertex attributes is necessary"]
     #[doc = " All vertices that are binary equivalent (wrt specified streams) map to the first vertex in the original vertex buffer."]
     #[doc = " This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using the original index buffer for regular rendering."]
+    #[doc = " Note that binary equivalence considers all size bytes in each stream, including padding which should be zero-initialized."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
     pub fn meshopt_generateShadowIndexBufferMulti(
@@ -99,12 +103,66 @@ extern "C" {
     );
 }
 extern "C" {
+    #[doc = " Generate index buffer that can be used as a geometry shader input with triangle adjacency topology"]
+    #[doc = " Each triangle is converted into a 6-vertex patch with the following layout:"]
+    #[doc = " - 0, 2, 4: original triangle vertices"]
+    #[doc = " - 1, 3, 5: vertices adjacent to edges 02, 24 and 40"]
+    #[doc = " The resulting patch can be rendered with geometry shaders using e.g. VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY."]
+    #[doc = " This can be used to implement algorithms like silhouette detection/expansion and other forms of GS-driven rendering."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the resulting index buffer (index_count*2 elements)"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    pub fn meshopt_generateAdjacencyIndexBuffer(
+        destination: *mut ::std::os::raw::c_uint,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+    );
+}
+extern "C" {
+    #[doc = " Generate index buffer that can be used for PN-AEN tessellation with crack-free displacement"]
+    #[doc = " Each triangle is converted into a 12-vertex patch with the following layout:"]
+    #[doc = " - 0, 1, 2: original triangle vertices"]
+    #[doc = " - 3, 4: opposing edge for edge 0, 1"]
+    #[doc = " - 5, 6: opposing edge for edge 1, 2"]
+    #[doc = " - 7, 8: opposing edge for edge 2, 0"]
+    #[doc = " - 9, 10, 11: dominant vertices for corners 0, 1, 2"]
+    #[doc = " The resulting patch can be rendered with hardware tessellation using PN-AEN and displacement mapping."]
+    #[doc = " See \"Tessellation on Any Budget\" (John McDonald, GDC 2011) for implementation details."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the resulting index buffer (index_count*4 elements)"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    pub fn meshopt_generateTessellationIndexBuffer(
+        destination: *mut ::std::os::raw::c_uint,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+    );
+}
+extern "C" {
     #[doc = " Vertex transform cache optimizer"]
     #[doc = " Reorders indices to reduce the number of GPU vertex shader invocations"]
     #[doc = " If index buffer contains multiple ranges for multiple draw calls, this functions needs to be called on each range individually."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
     pub fn meshopt_optimizeVertexCache(
+        destination: *mut ::std::os::raw::c_uint,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_count: usize,
+    );
+}
+extern "C" {
+    #[doc = " Vertex transform cache optimizer for strip-like caches"]
+    #[doc = " Produces inferior results to meshopt_optimizeVertexCache from the GPU vertex cache perspective"]
+    #[doc = " However, the resulting index order is more optimal if the goal is to reduce the triangle strip length or improve compression efficiency"]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
+    pub fn meshopt_optimizeVertexCacheStrip(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
         index_count: usize,
@@ -180,6 +238,7 @@ extern "C" {
 extern "C" {
     #[doc = " Index buffer encoder"]
     #[doc = " Encodes index data into an array of bytes that is generally much smaller (<1.5 bytes/triangle) and compresses better (<1 bytes/triangle) compared to original."]
+    #[doc = " Input index buffer must represent a triangle list."]
     #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn't have enough space"]
     #[doc = " For maximum efficiency the index buffer being encoded has to be optimized for vertex cache and vertex fetch first."]
     #[doc = ""]
@@ -193,6 +252,11 @@ extern "C" {
 }
 extern "C" {
     pub fn meshopt_encodeIndexBufferBound(index_count: usize, vertex_count: usize) -> usize;
+}
+extern "C" {
+    #[doc = " Set index encoder format version"]
+    #[doc = " version must specify the data format version to encode; valid values are 0 (decodable by all library versions) and 1 (decodable by 0.14+)"]
+    pub fn meshopt_encodeIndexVersion(version: ::std::os::raw::c_int);
 }
 extern "C" {
     #[doc = " Index buffer decoder"]
@@ -210,10 +274,43 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
+    #[doc = " Index sequence encoder"]
+    #[doc = " Encodes index sequence into an array of bytes that is generally smaller and compresses better compared to original."]
+    #[doc = " Input index sequence can represent arbitrary topology; for triangle lists meshopt_encodeIndexBuffer is likely to be better."]
+    #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn't have enough space"]
+    #[doc = ""]
+    #[doc = " buffer must contain enough space for the encoded index sequence (use meshopt_encodeIndexSequenceBound to compute worst case size)"]
+    pub fn meshopt_encodeIndexSequence(
+        buffer: *mut ::std::os::raw::c_uchar,
+        buffer_size: usize,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+    ) -> usize;
+}
+extern "C" {
+    pub fn meshopt_encodeIndexSequenceBound(index_count: usize, vertex_count: usize) -> usize;
+}
+extern "C" {
+    #[doc = " Index sequence decoder"]
+    #[doc = " Decodes index data from an array of bytes generated by meshopt_encodeIndexSequence"]
+    #[doc = " Returns 0 if decoding was successful, and an error code otherwise"]
+    #[doc = " The decoder is safe to use for untrusted input, but it may produce garbage data (e.g. out of range indices)."]
+    #[doc = ""]
+    #[doc = " destination must contain enough space for the resulting index sequence (index_count elements)"]
+    pub fn meshopt_decodeIndexSequence(
+        destination: *mut ::std::os::raw::c_void,
+        index_count: usize,
+        index_size: usize,
+        buffer: *const ::std::os::raw::c_uchar,
+        buffer_size: usize,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
     #[doc = " Vertex buffer encoder"]
     #[doc = " Encodes vertex data into an array of bytes that is generally smaller and compresses better compared to original."]
     #[doc = " Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn't have enough space"]
     #[doc = " This function works for a single vertex stream; for multiple vertex streams, call meshopt_encodeVertexBuffer for each stream."]
+    #[doc = " Note that all vertex_size bytes of each vertex are encoded verbatim, including padding which should be zero-initialized."]
     #[doc = ""]
     #[doc = " buffer must contain enough space for the encoded vertex buffer (use meshopt_encodeVertexBufferBound to compute worst case size)"]
     pub fn meshopt_encodeVertexBuffer(
@@ -226,6 +323,11 @@ extern "C" {
 }
 extern "C" {
     pub fn meshopt_encodeVertexBufferBound(vertex_count: usize, vertex_size: usize) -> usize;
+}
+extern "C" {
+    #[doc = " Set vertex encoder format version"]
+    #[doc = " version must specify the data format version to encode; valid values are 0 (decodable by all library versions)"]
+    pub fn meshopt_encodeVertexVersion(version: ::std::os::raw::c_int);
 }
 extern "C" {
     #[doc = " Vertex buffer decoder"]
@@ -243,6 +345,80 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
+    #[doc = " Vertex buffer filters"]
+    #[doc = " These functions can be used to filter output of meshopt_decodeVertexBuffer in-place."]
+    #[doc = ""]
+    #[doc = " meshopt_decodeFilterOct decodes octahedral encoding of a unit vector with K-bit (K <= 16) signed X/Y as an input; Z must store 1.0f."]
+    #[doc = " Each component is stored as an 8-bit or 16-bit normalized integer; stride must be equal to 4 or 8. W is preserved as is."]
+    #[doc = ""]
+    #[doc = " meshopt_decodeFilterQuat decodes 3-component quaternion encoding with K-bit (4 <= K <= 16) component encoding and a 2-bit component index indicating which component to reconstruct."]
+    #[doc = " Each component is stored as an 16-bit integer; stride must be equal to 8."]
+    #[doc = ""]
+    #[doc = " meshopt_decodeFilterExp decodes exponential encoding of floating-point data with 8-bit exponent and 24-bit integer mantissa as 2^E*M."]
+    #[doc = " Each 32-bit component is decoded in isolation; stride must be divisible by 4."]
+    pub fn meshopt_decodeFilterOct(
+        buffer: *mut ::std::os::raw::c_void,
+        count: usize,
+        stride: usize,
+    );
+}
+extern "C" {
+    pub fn meshopt_decodeFilterQuat(
+        buffer: *mut ::std::os::raw::c_void,
+        count: usize,
+        stride: usize,
+    );
+}
+extern "C" {
+    pub fn meshopt_decodeFilterExp(
+        buffer: *mut ::std::os::raw::c_void,
+        count: usize,
+        stride: usize,
+    );
+}
+extern "C" {
+    #[doc = " Vertex buffer filter encoders"]
+    #[doc = " These functions can be used to encode data in a format that meshopt_decodeFilter can decode"]
+    #[doc = ""]
+    #[doc = " meshopt_encodeFilterOct encodes unit vectors with K-bit (K <= 16) signed X/Y as an output."]
+    #[doc = " Each component is stored as an 8-bit or 16-bit normalized integer; stride must be equal to 4 or 8. W is preserved as is."]
+    #[doc = " Input data must contain 4 floats for every vector (count*4 total)."]
+    #[doc = ""]
+    #[doc = " meshopt_encodeFilterQuat encodes unit quaternions with K-bit (4 <= K <= 16) component encoding."]
+    #[doc = " Each component is stored as an 16-bit integer; stride must be equal to 8."]
+    #[doc = " Input data must contain 4 floats for every quaternion (count*4 total)."]
+    #[doc = ""]
+    #[doc = " meshopt_encodeFilterExp encodes arbitrary (finite) floating-point data with 8-bit exponent and K-bit integer mantissa (1 <= K <= 24)."]
+    #[doc = " Mantissa is shared between all components of a given vector as defined by stride; stride must be divisible by 4."]
+    #[doc = " Input data must contain stride/4 floats for every vector (count*stride/4 total)."]
+    #[doc = " When individual (scalar) encoding is desired, simply pass stride=4 and adjust count accordingly."]
+    pub fn meshopt_encodeFilterOct(
+        destination: *mut ::std::os::raw::c_void,
+        count: usize,
+        stride: usize,
+        bits: ::std::os::raw::c_int,
+        data: *const f32,
+    );
+}
+extern "C" {
+    pub fn meshopt_encodeFilterQuat(
+        destination: *mut ::std::os::raw::c_void,
+        count: usize,
+        stride: usize,
+        bits: ::std::os::raw::c_int,
+        data: *const f32,
+    );
+}
+extern "C" {
+    pub fn meshopt_encodeFilterExp(
+        destination: *mut ::std::os::raw::c_void,
+        count: usize,
+        stride: usize,
+        bits: ::std::os::raw::c_int,
+        data: *const f32,
+    );
+}
+extern "C" {
     #[doc = " Experimental: Mesh simplifier"]
     #[doc = " Reduces the number of triangles in the mesh, attempting to preserve mesh appearance as much as possible"]
     #[doc = " The algorithm tries to preserve mesh topology and can stop short of the target goal based on topology constraints or target error."]
@@ -251,8 +427,10 @@ extern "C" {
     #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
     #[doc = " If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
     #[doc = ""]
-    #[doc = " destination must contain enough space for the *source* index buffer (since optimization is iterative, this means index_count elements - *not* target_index_count!)"]
+    #[doc = " destination must contain enough space for the target index buffer, worst case is index_count elements (*not* target_index_count)!"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    #[doc = " target_error represents the error relative to mesh extents that can be tolerated, e.g. 0.01 = 1% deformation"]
+    #[doc = " result_error can be NULL; when it's not NULL, it will contain the resulting (relative) error after simplification"]
     pub fn meshopt_simplify(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -262,18 +440,21 @@ extern "C" {
         vertex_positions_stride: usize,
         target_index_count: usize,
         target_error: f32,
+        result_error: *mut f32,
     ) -> usize;
 }
 extern "C" {
     #[doc = " Experimental: Mesh simplifier (sloppy)"]
-    #[doc = " Reduces the number of triangles in the mesh, sacrificing mesh apperance for simplification performance"]
-    #[doc = " The algorithm doesn't preserve mesh topology but is always able to reach target triangle count."]
+    #[doc = " Reduces the number of triangles in the mesh, sacrificing mesh appearance for simplification performance"]
+    #[doc = " The algorithm doesn't preserve mesh topology but can stop short of the target goal based on target error."]
     #[doc = " Returns the number of indices after simplification, with destination containing new index data"]
     #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
     #[doc = " If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
     #[doc = ""]
-    #[doc = " destination must contain enough space for the target index buffer"]
+    #[doc = " destination must contain enough space for the target index buffer, worst case is index_count elements (*not* target_index_count)!"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    #[doc = " target_error represents the error relative to mesh extents that can be tolerated, e.g. 0.01 = 1% deformation"]
+    #[doc = " result_error can be NULL; when it's not NULL, it will contain the resulting (relative) error after simplification"]
     pub fn meshopt_simplifySloppy(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -282,6 +463,8 @@ extern "C" {
         vertex_count: usize,
         vertex_positions_stride: usize,
         target_index_count: usize,
+        target_error: f32,
+        result_error: *mut f32,
     ) -> usize;
 }
 extern "C" {
@@ -291,7 +474,7 @@ extern "C" {
     #[doc = " The resulting index buffer references vertices from the original vertex buffer."]
     #[doc = " If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended."]
     #[doc = ""]
-    #[doc = " destination must contain enough space for the target index buffer"]
+    #[doc = " destination must contain enough space for the target index buffer (target_vertex_count elements)"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
     pub fn meshopt_simplifyPoints(
         destination: *mut ::std::os::raw::c_uint,
@@ -300,6 +483,17 @@ extern "C" {
         vertex_positions_stride: usize,
         target_vertex_count: usize,
     ) -> usize;
+}
+extern "C" {
+    #[doc = " Experimental: Returns the error scaling factor used by the simplifier to convert between absolute and relative extents"]
+    #[doc = ""]
+    #[doc = " Absolute error must be *divided* by the scaling factor before passing it to meshopt_simplify as target_error"]
+    #[doc = " Relative error returned by meshopt_simplify via result_error must be *multiplied* by the scaling factor to get absolute error."]
+    pub fn meshopt_simplifyScale(
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+    ) -> f32;
 }
 extern "C" {
     #[doc = " Mesh stripifier"]
@@ -399,21 +593,43 @@ extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct meshopt_Meshlet {
-    pub vertices: [::std::os::raw::c_uint; 64usize],
-    pub indices: [[::std::os::raw::c_uchar; 3usize]; 126usize],
-    pub triangle_count: ::std::os::raw::c_uchar,
-    pub vertex_count: ::std::os::raw::c_uchar,
+    pub vertex_offset: ::std::os::raw::c_uint,
+    pub triangle_offset: ::std::os::raw::c_uint,
+    pub vertex_count: ::std::os::raw::c_uint,
+    pub triangle_count: ::std::os::raw::c_uint,
 }
 extern "C" {
-    #[doc = " Experimental: Meshlet builder"]
+    #[doc = " Meshlet builder"]
     #[doc = " Splits the mesh into a set of meshlets where each meshlet has a micro index buffer indexing into meshlet vertices that refer to the original vertex buffer"]
     #[doc = " The resulting data can be used to render meshes using NVidia programmable mesh shading pipeline, or in other cluster-based renderers."]
-    #[doc = " For maximum efficiency the index buffer being converted has to be optimized for vertex cache first."]
+    #[doc = " When using buildMeshlets, vertex positions need to be provided to minimize the size of the resulting clusters."]
+    #[doc = " When using buildMeshletsScan, for maximum efficiency the index buffer being converted has to be optimized for vertex cache first."]
     #[doc = ""]
-    #[doc = " destination must contain enough space for all meshlets, worst case size can be computed with meshopt_buildMeshletsBound"]
-    #[doc = " max_vertices and max_triangles can't exceed limits statically declared in meshopt_Meshlet (max_vertices <= 64, max_triangles <= 126)"]
+    #[doc = " meshlets must contain enough space for all meshlets, worst case size can be computed with meshopt_buildMeshletsBound"]
+    #[doc = " meshlet_vertices must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_vertices"]
+    #[doc = " meshlet_triangles must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_triangles * 3"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
+    #[doc = " max_vertices and max_triangles must not exceed implementation limits (max_vertices <= 255 - not 256!, max_triangles <= 512)"]
+    #[doc = " cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1 otherwise to balance between cluster size and cone culling efficiency"]
     pub fn meshopt_buildMeshlets(
-        destination: *mut meshopt_Meshlet,
+        meshlets: *mut meshopt_Meshlet,
+        meshlet_vertices: *mut ::std::os::raw::c_uint,
+        meshlet_triangles: *mut ::std::os::raw::c_uchar,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+        max_vertices: usize,
+        max_triangles: usize,
+        cone_weight: f32,
+    ) -> usize;
+}
+extern "C" {
+    pub fn meshopt_buildMeshletsScan(
+        meshlets: *mut meshopt_Meshlet,
+        meshlet_vertices: *mut ::std::os::raw::c_uint,
+        meshlet_triangles: *mut ::std::os::raw::c_uchar,
         indices: *const ::std::os::raw::c_uint,
         index_count: usize,
         vertex_count: usize,
@@ -440,7 +656,7 @@ pub struct meshopt_Bounds {
     pub cone_cutoff_s8: ::std::os::raw::c_schar,
 }
 extern "C" {
-    #[doc = " Experimental: Cluster bounds generator"]
+    #[doc = " Cluster bounds generator"]
     #[doc = " Creates bounding volumes that can be used for frustum, backface and occlusion culling."]
     #[doc = ""]
     #[doc = " For backface culling with orthographic projection, use the following formula to reject backfacing clusters:"]
@@ -458,7 +674,7 @@ extern "C" {
     #[doc = " to do frustum/occlusion culling, the formula that doesn't use the apex may be preferable."]
     #[doc = ""]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
-    #[doc = " index_count should be less than or equal to 256*3 (the function assumes clusters of limited size)"]
+    #[doc = " index_count/3 should be less than or equal to 512 (the function assumes clusters of limited size)"]
     pub fn meshopt_computeClusterBounds(
         indices: *const ::std::os::raw::c_uint,
         index_count: usize,
@@ -469,7 +685,9 @@ extern "C" {
 }
 extern "C" {
     pub fn meshopt_computeMeshletBounds(
-        meshlet: *const meshopt_Meshlet,
+        meshlet_vertices: *const ::std::os::raw::c_uint,
+        meshlet_triangles: *const ::std::os::raw::c_uchar,
+        triangle_count: usize,
         vertex_positions: *const f32,
         vertex_count: usize,
         vertex_positions_stride: usize,
@@ -493,7 +711,6 @@ extern "C" {
     #[doc = " Reorders triangles for spatial locality, and generates a new index buffer. The resulting index buffer can be used with other functions like optimizeVertexCache."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
-    #[doc = " indices must contain index data that is the result of meshopt_optimizeVertexCache (*not* the original mesh indices!)"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex - similar to glVertexPointer"]
     pub fn meshopt_spatialSortTriangles(
         destination: *mut ::std::os::raw::c_uint,

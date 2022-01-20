@@ -149,13 +149,13 @@ impl<'a> VertexDataAdapter<'a> {
     ) -> Result<VertexDataAdapter<'a>> {
         let vertex_count = data.len() / vertex_stride;
         if data.len() % vertex_stride != 0 {
-            Err(Error::memory(format!(
+            Err(Error::memory_dynamic(format!(
                 "vertex data length ({}) must be evenly divisible by vertex_stride ({})",
                 data.len(),
                 vertex_stride
             )))
         } else if position_offset >= vertex_stride {
-            Err(Error::memory(format!(
+            Err(Error::memory_dynamic(format!(
                 "position_offset ({}) must be smaller than vertex_stride ({})",
                 position_offset, vertex_stride
             )))
@@ -171,7 +171,7 @@ impl<'a> VertexDataAdapter<'a> {
 
     pub fn xyz_f32_at(&mut self, vertex: usize) -> Result<&[f32]> {
         if vertex <= self.vertex_count {
-            Err(Error::memory(format!(
+            Err(Error::memory_dynamic(format!(
                 "vertex index ({}) must be less than total vertex count ({})",
                 vertex, self.vertex_count
             )))

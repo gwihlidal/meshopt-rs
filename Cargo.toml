@@ -41,7 +41,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 float-cmp = "0.5.3"
-failure = "0.1.6"
+thiserror = "1.0"
 
 [build-dependencies]
 cc = { version = "1.0" }

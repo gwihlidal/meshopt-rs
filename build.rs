@@ -1,7 +1,3 @@
-#[cfg(feature = "generate_bindings")]
-extern crate bindgen;
-extern crate cc;
-
 use std::env;
 
 fn main() {
@@ -68,10 +64,11 @@ fn generate_bindings(output_file: &str) {
         .rustfmt_bindings(true)
         .derive_debug(true)
         .impl_debug(true)
-        .blacklist_type("__darwin_.*")
-        .whitelist_function("meshopt.*")
+        .blocklist_type("__darwin_.*")
+        .allowlist_function("meshopt.*")
         .trust_clang_mangling(false)
         .layout_tests(false)
+        .size_t_is_usize(true)
         .generate()
         .expect("Unable to generate bindings!");
 

@@ -8,8 +8,8 @@ repository = "https://github.com/gwihlidal/meshopt-rs"
 documentation = "https://docs.rs/meshopt"
 readme = "README.md"
 keywords = ["mesh", "optimize", "cache", "3d", "rendering"]
-categories = ["rendering", "rendering::engine", ]
-license = "MIT/Apache-2.0"
+categories = ["rendering", "rendering::engine"]
+license = "MIT OR Apache-2.0"
 build = "build.rs"
 include = [
     "src/*.rs",
@@ -33,33 +33,33 @@ include = [
     "vendor/src/vfetchoptimizer.cpp",
     "include_wasm32/*.h",
 ]
-edition = "2018"
+edition = "2021"
 
 [badges]
 travis-ci = { repository = "gwihlidal/meshopt-rs" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-float-cmp = "0.5.3"
-failure = "0.1.6"
+float-cmp = "0.9"
+thiserror = "1.0"
 
 [build-dependencies]
-cc = { version = "1.0.46" }
+cc = { version = "1.0" }
 
 [build-dependencies.bindgen]
-version = "0.51.1"
+version = "0.59"
 optional = true
 
 [dev-dependencies]
-tobj = "0.1.11"
-miniz_oxide = "0.3.5"
-rand = "0.7.2"
-libc = "0.2.65"
-structopt = "0.3.3"
-memoffset = "0.5.2"
+tobj = "3.2"
+miniz_oxide = "0.5"
+rand = "0.8"
+libc = "0.2"
+structopt = "0.3"
+memoffset = "0.6"
 
 [dev-dependencies.gltf]
-version = "0.14.0"
+version = "0.16"
 features = ["extras", "names"]
 
 [profile.release]
@@ -68,4 +68,4 @@ opt-level = 3
 codegen-units = 1
 
 [features]
-generate_bindings=["bindgen"]
+generate_bindings = ["bindgen"]

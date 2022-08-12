@@ -40,7 +40,7 @@ pub fn generate_vertex_remap<T>(vertices: &[T], indices: Option<&[u32]>) -> (usi
 /// To remap vertex buffers, you will need to call `remap_vertex_buffer` for each vertex stream.
 ///
 /// The `indices` can be `None` if the input is unindexed.
-pub fn generate_vertex_remap_multi<T>(
+pub fn generate_vertex_remap_multi(
     vertex_count: usize,
     streams: &[VertexStream<'_>],
     indices: Option<&[u32]>,

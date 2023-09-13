@@ -655,6 +655,7 @@ fn simplify(mesh: &Mesh) {
                 &vertex_adapter,
                 ::std::cmp::min(src.len(), target_index_count),
                 target_error,
+                meshopt::SimplifyOptions::None,
             );
         }
         lods.push(lod);

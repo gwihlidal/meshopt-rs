@@ -1,5 +1,14 @@
 use crate::{ffi, DecodePosition, VertexDataAdapter};
+use bitflags::bitflags;
 use std::mem;
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct SimplifyOptions : u32 {
+        const None = 0;
+        const LockBorder = 1;
+    }
+}
 
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh
 /// appearance as much as possible.
@@ -13,6 +22,7 @@ pub fn simplify(
     vertices: &VertexDataAdapter<'_>,
     target_count: usize,
     target_error: f32,
+    options: SimplifyOptions,
 ) -> Vec<u32> {
     let vertex_data = vertices.reader.get_ref();
     let vertex_data = vertex_data.as_ptr().cast::<u8>();
@@ -28,6 +38,7 @@ pub fn simplify(
             vertices.vertex_stride,
             target_count,
             target_error,
+            options.bits(),
             std::ptr::null_mut(),
         )
     };
@@ -47,6 +58,7 @@ pub fn simplify_decoder<T: DecodePosition>(
     vertices: &[T],
     target_count: usize,
     target_error: f32,
+    options: SimplifyOptions,
 ) -> Vec<u32> {
     let positions = vertices
         .iter()
@@ -63,6 +75,7 @@ pub fn simplify_decoder<T: DecodePosition>(
             mem::size_of::<f32>() * 3,
             target_count,
             target_error,
+            options.bits(),
             std::ptr::null_mut(),
         )
     };

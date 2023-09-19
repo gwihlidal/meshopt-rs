@@ -35,6 +35,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting remap table (vertex_count elements)"]
     #[doc = " indices can be NULL if the input is unindexed"]
+    #[doc = " stream_count must be <= 16"]
     pub fn meshopt_generateVertexRemapMulti(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -93,6 +94,7 @@ extern "C" {
     #[doc = " Note that binary equivalence considers all size bytes in each stream, including padding which should be zero-initialized."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting index buffer (index_count elements)"]
+    #[doc = " stream_count must be <= 16"]
     pub fn meshopt_generateShadowIndexBufferMulti(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -456,6 +458,8 @@ extern "C" {
     #[doc = ""]
     #[doc = " vertex_attributes should have attribute_count floats for each vertex"]
     #[doc = " attribute_weights should have attribute_count floats in total; the weights determine relative priority of attributes between each other and wrt position. The recommended weight range is [1e-3..1e-1], assuming attribute data is in [0..1] range."]
+    #[doc = " attribute_count must be <= 16"]
+    #[doc = " vertex_lock can be NULL; when it's not NULL, it should have a value for each vertex; 1 denotes vertices that can't be moved"]
     #[doc = " TODO target_error/result_error currently use combined distance+attribute error; this may change in the future"]
     pub fn meshopt_simplifyWithAttributes(
         destination: *mut ::std::os::raw::c_uint,
@@ -468,6 +472,7 @@ extern "C" {
         vertex_attributes_stride: usize,
         attribute_weights: *const f32,
         attribute_count: usize,
+        vertex_lock: *const ::std::os::raw::c_uchar,
         target_index_count: usize,
         target_error: f32,
         options: ::std::os::raw::c_uint,
@@ -507,11 +512,15 @@ extern "C" {
     #[doc = ""]
     #[doc = " destination must contain enough space for the target index buffer (target_vertex_count elements)"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex"]
+    #[doc = " vertex_colors should can be NULL; when it's not NULL, it should have float3 color in the first 12 bytes of each vertex"]
     pub fn meshopt_simplifyPoints(
         destination: *mut ::std::os::raw::c_uint,
         vertex_positions: *const f32,
         vertex_count: usize,
         vertex_positions_stride: usize,
+        vertex_colors: *const f32,
+        vertex_colors_stride: usize,
+        color_weight: f32,
         target_vertex_count: usize,
     ) -> usize;
 }
@@ -640,7 +649,7 @@ extern "C" {
     #[doc = " meshlet_vertices must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_vertices"]
     #[doc = " meshlet_triangles must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_triangles * 3"]
     #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex"]
-    #[doc = " max_vertices and max_triangles must not exceed implementation limits (max_vertices <= 255 - not 256!, max_triangles <= 512)"]
+    #[doc = " max_vertices and max_triangles must not exceed implementation limits (max_vertices <= 255 - not 256!, max_triangles <= 512; max_triangles must be divisible by 4)"]
     #[doc = " cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1 otherwise to balance between cluster size and cone culling efficiency"]
     pub fn meshopt_buildMeshlets(
         meshlets: *mut meshopt_Meshlet,
@@ -675,6 +684,20 @@ extern "C" {
         max_triangles: usize,
     ) -> usize;
 }
+extern "C" {
+    #[doc = " Experimental: Meshlet optimizer"]
+    #[doc = " Reorders meshlet vertices and triangles to maximize locality to improve rasterizer throughput"]
+    #[doc = ""]
+    #[doc = " meshlet_triangles and meshlet_vertices must refer to meshlet triangle and vertex index data; when buildMeshlets* is used, these"]
+    #[doc = " need to be computed from meshlet's vertex_offset and triangle_offset"]
+    #[doc = " triangle_count and vertex_count must not exceed implementation limits (vertex_count <= 255 - not 256!, triangle_count <= 512)"]
+    pub fn meshopt_optimizeMeshlet(
+        meshlet_vertices: *mut ::std::os::raw::c_uint,
+        meshlet_triangles: *mut ::std::os::raw::c_uchar,
+        triangle_count: usize,
+        vertex_count: usize,
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct meshopt_Bounds {
@@ -693,7 +716,7 @@ extern "C" {
     #[doc = " For backface culling with orthographic projection, use the following formula to reject backfacing clusters:"]
     #[doc = "   dot(view, cone_axis) >= cone_cutoff"]
     #[doc = ""]
-    #[doc = " For perspective projection, you can the formula that needs cone apex in addition to axis & cutoff:"]
+    #[doc = " For perspective projection, you can use the formula that needs cone apex in addition to axis & cutoff:"]
     #[doc = "   dot(normalize(cone_apex - camera_position), cone_axis) >= cone_cutoff"]
     #[doc = ""]
     #[doc = " Alternatively, you can use the formula that doesn't need cone apex and uses bounding sphere instead:"]
@@ -726,11 +749,12 @@ extern "C" {
     ) -> meshopt_Bounds;
 }
 extern "C" {
-    #[doc = " Experimental: Spatial sorter"]
+    #[doc = " Spatial sorter"]
     #[doc = " Generates a remap table that can be used to reorder points for spatial locality."]
     #[doc = " Resulting remap table maps old vertices to new vertices and can be used in meshopt_remapVertexBuffer."]
     #[doc = ""]
     #[doc = " destination must contain enough space for the resulting remap table (vertex_count elements)"]
+    #[doc = " vertex_positions should have float3 position in the first 12 bytes of each vertex"]
     pub fn meshopt_spatialSortRemap(
         destination: *mut ::std::os::raw::c_uint,
         vertex_positions: *const f32,

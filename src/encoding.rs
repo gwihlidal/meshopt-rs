@@ -122,8 +122,7 @@ pub struct EncodeObject {
 }
 
 pub fn calc_pos_offset_and_scale(positions: &[f32]) -> ([f32; 3], f32) {
-    use std::f32::MAX;
-
+    const MAX: f32 = f32::MAX;
     let pos_offset = positions
         .chunks(3)
         .fold([MAX, MAX, MAX], |result, position| {
@@ -151,7 +150,7 @@ pub fn calc_pos_offset_and_scale_inverse(positions: &[f32]) -> ([f32; 3], f32) {
 }
 
 pub fn calc_uv_offset_and_scale(coords: &[f32]) -> ([f32; 2], [f32; 2]) {
-    use std::f32::MAX;
+    const MAX: f32 = f32::MAX;
 
     let uv_offset = coords.chunks(2).fold([MAX, MAX], |result, coord| {
         [result[0].min(coord[0]), result[1].min(coord[1])]

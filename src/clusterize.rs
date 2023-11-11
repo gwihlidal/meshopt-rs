@@ -21,13 +21,24 @@ impl Meshlets {
         self.meshlets.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Meshlet<'_>> {
-        self.meshlets.iter().map(|meshlet| Meshlet {
+    fn meshlet_from_ffi(&self, meshlet: &ffi::meshopt_Meshlet) -> Meshlet<'_> {
+        Meshlet {
             vertices: &self.vertices[meshlet.vertex_offset as usize
                 ..meshlet.vertex_offset as usize + meshlet.vertex_count as usize],
             triangles: &self.triangles[meshlet.triangle_offset as usize
                 ..meshlet.triangle_offset as usize + meshlet.triangle_count as usize * 3],
-        })
+        }
+    }
+
+    #[inline]
+    pub fn get(&self, idx: usize) -> Meshlet<'_> {
+        self.meshlet_from_ffi(&self.meshlets[idx])
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Meshlet<'_>> {
+        self.meshlets
+            .iter()
+            .map(|meshlet| self.meshlet_from_ffi(meshlet))
     }
 }
 

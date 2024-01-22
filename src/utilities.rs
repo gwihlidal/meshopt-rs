@@ -8,12 +8,7 @@ pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 
 #[inline(always)]
 pub fn typed_to_bytes<T: Sized>(typed: &[T]) -> &[u8] {
-    unsafe {
-        std::slice::from_raw_parts(
-            typed.as_ptr().cast(),
-            typed.len() * std::mem::size_of::<T>(),
-        )
-    }
+    unsafe { std::slice::from_raw_parts(typed.as_ptr().cast(), std::mem::size_of_val(typed)) }
 }
 
 pub fn convert_indices_32_to_16(indices: &[u32]) -> Result<Vec<u16>> {
@@ -106,8 +101,8 @@ pub fn quantize_float(v: f32, n: i32) -> f32 {
     let mut u = FloatUInt { fl: v };
     let mut ui = unsafe { u.ui };
 
-    let mask = ((1 << (23 - n)) - 1) as i32;
-    let round = ((1 << (23 - n)) >> 1) as i32;
+    let mask = (1 << (23 - n)) - 1;
+    let round = (1 << (23 - n)) >> 1;
 
     let e = (ui & 0x7f80_0000) as i32;
     let rui: u32 = ((ui as i32 + round) & !mask) as u32;

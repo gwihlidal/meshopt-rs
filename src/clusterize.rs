@@ -20,6 +20,10 @@ impl Meshlets {
     pub fn len(&self) -> usize {
         self.meshlets.len()
     }
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.meshlets.is_empty()
+    }
 
     pub fn iter(&self) -> impl Iterator<Item = Meshlet<'_>> {
         self.meshlets.iter().map(|meshlet| Meshlet {

@@ -126,7 +126,7 @@ impl Mesh {
 
         let mut total_indices = 0;
 
-        for (_, m) in models.iter().enumerate() {
+        for m in models.iter() {
             let mut vertices: Vec<Vertex> = Vec::new();
             let mesh = &m.mesh;
             total_indices += mesh.indices.len();
@@ -370,9 +370,9 @@ fn opt_random_shuffle(mesh: &mut Mesh) {
 
     let mut result: Vec<u32> = Vec::with_capacity(mesh.indices.len());
     faces.iter().for_each(|face| {
-        result.push(mesh.indices[faces[*face as usize] * 3 + 0]);
-        result.push(mesh.indices[faces[*face as usize] * 3 + 1]);
-        result.push(mesh.indices[faces[*face as usize] * 3 + 2]);
+        result.push(mesh.indices[faces[*face] * 3 + 0]);
+        result.push(mesh.indices[faces[*face] * 3 + 1]);
+        result.push(mesh.indices[faces[*face] * 3 + 2]);
     });
 
     mesh.indices = result;
@@ -655,6 +655,7 @@ fn simplify(mesh: &Mesh) {
                 &vertex_adapter,
                 ::std::cmp::min(src.len(), target_index_count),
                 target_error,
+                0,
             );
         }
         lods.push(lod);
@@ -676,11 +677,8 @@ fn simplify(mesh: &Mesh) {
     // cost for coarse LODs
     // this order also produces much better vertex fetch cache coherency for coarse LODs (since they're essentially optimized first)
     // somewhat surprisingly, the vertex fetch cache coherency for fine LODs doesn't seem to suffer that much.
-    let mut lod_offsets: Vec<usize> = Vec::new();
-    lod_offsets.resize(lod_count, 0);
-
-    let mut lod_counts: Vec<usize> = Vec::new();
-    lod_counts.resize(lod_count, 0);
+    let mut lod_offsets: Vec<usize> = vec![0; lod_count];
+    let mut lod_counts: Vec<usize> = vec![0; lod_count];
 
     let mut total_index_count: usize = 0;
     for i in (0..lod_count).rev() {
@@ -689,8 +687,7 @@ fn simplify(mesh: &Mesh) {
         total_index_count += lod_counts[i];
     }
 
-    let mut indices: Vec<u32> = Vec::new();
-    indices.resize(total_index_count, 0u32);
+    let mut indices: Vec<u32> = vec![0; total_index_count];
     for i in 0..lod_count {
         let lod = &lods[i];
         let offset = lod_offsets[i];

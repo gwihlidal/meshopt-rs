@@ -57,11 +57,11 @@ fn main() {
 
     let mut objects: Vec<Object> = Vec::new();
 
-    for (_, m) in models.iter().enumerate() {
+    for m in models.iter() {
         let mesh = &m.mesh;
 
         let material = match mesh.material_id {
-            Some(id) => materials[id as usize].name.to_owned(),
+            Some(id) => materials[id].name.to_owned(),
             None => String::new(),
         };
 

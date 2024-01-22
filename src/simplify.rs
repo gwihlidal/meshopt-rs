@@ -13,6 +13,7 @@ pub fn simplify(
     vertices: &VertexDataAdapter<'_>,
     target_count: usize,
     target_error: f32,
+    options: u32,
 ) -> Vec<u32> {
     let vertex_data = vertices.reader.get_ref();
     let vertex_data = vertex_data.as_ptr().cast::<u8>();
@@ -28,6 +29,7 @@ pub fn simplify(
             vertices.vertex_stride,
             target_count,
             target_error,
+            options,
             std::ptr::null_mut(),
         )
     };
@@ -47,6 +49,7 @@ pub fn simplify_decoder<T: DecodePosition>(
     vertices: &[T],
     target_count: usize,
     target_error: f32,
+    options: u32,
 ) -> Vec<u32> {
     let positions = vertices
         .iter()
@@ -63,6 +66,7 @@ pub fn simplify_decoder<T: DecodePosition>(
             mem::size_of::<f32>() * 3,
             target_count,
             target_error,
+            options,
             std::ptr::null_mut(),
         )
     };

@@ -198,8 +198,8 @@ impl<'a> Read for VertexDataAdapter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use memoffset::offset_of;
     use crate::{typed_to_bytes, Vertex, VertexDataAdapter};
+    use memoffset::offset_of;
 
     #[test]
     fn test_xyz_f32_at() {
@@ -220,7 +220,8 @@ mod tests {
             typed_to_bytes(&*vertices),
             std::mem::size_of::<Vertex>(),
             offset_of!(Vertex, p),
-        ).unwrap();
+        )
+        .unwrap();
 
         let p = adapter.xyz_f32_at(0).unwrap();
         assert_eq!(p, [1.0, 2.0, 3.0]);

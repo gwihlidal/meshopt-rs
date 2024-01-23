@@ -1,6 +1,6 @@
 use crate::{ffi, DecodePosition, VertexDataAdapter};
-use std::mem;
 use bitflags::bitflags;
+use std::mem;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -176,7 +176,7 @@ impl<'a> VertexDataAdapter<'a> {
             let mut scratch = [0u8; 12];
             self.reader.read_exact(&mut scratch)?;
             let position =
-                unsafe { std::slice::from_raw_parts(scratch.as_ptr().cast::<f32>(), 12) };
+                unsafe { std::slice::from_raw_parts(scratch.as_ptr().cast::<f32>(), 3) };
             self.reader.set_position(reader_pos);
             Ok(position)
         }

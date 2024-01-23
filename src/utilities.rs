@@ -162,24 +162,24 @@ impl<'a> VertexDataAdapter<'a> {
         }
     }
 
-    pub fn xyz_f32_at(&mut self, vertex: usize) -> Result<&[f32]> {
-        if vertex <= self.vertex_count {
-            Err(Error::memory_dynamic(format!(
+    pub fn xyz_f32_at(&mut self, vertex: usize) -> Result<[f32; 3]> {
+        if vertex >= self.vertex_count {
+            return Err(Error::memory_dynamic(format!(
                 "vertex index ({}) must be less than total vertex count ({})",
                 vertex, self.vertex_count
-            )))
-        } else {
-            let reader_pos = self.reader.position();
-            let vertex_offset = vertex * self.vertex_stride;
-            self.reader
-                .set_position((vertex_offset + self.position_offset) as u64);
-            let mut scratch = [0u8; 12];
-            self.reader.read_exact(&mut scratch)?;
-            let position =
-                unsafe { std::slice::from_raw_parts(scratch.as_ptr().cast::<f32>(), 3) };
-            self.reader.set_position(reader_pos);
-            Ok(position)
+            )));
         }
+        let reader_pos = self.reader.position();
+        let vertex_offset = vertex * self.vertex_stride;
+        self.reader
+            .set_position((vertex_offset + self.position_offset) as u64);
+        let mut scratch = [0u8; 12];
+        self.reader.read_exact(&mut scratch)?;
+
+        let position: [f32; 3] = unsafe { std::mem::transmute(scratch) };
+
+        self.reader.set_position(reader_pos);
+        Ok(position)
     }
 
     pub fn pos_ptr(&self) -> *const f32 {
@@ -193,5 +193,40 @@ impl<'a> VertexDataAdapter<'a> {
 impl<'a> Read for VertexDataAdapter<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         self.reader.read(buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use memoffset::offset_of;
+    use crate::{typed_to_bytes, Vertex, VertexDataAdapter};
+
+    #[test]
+    fn test_xyz_f32_at() {
+        let vertices = vec![
+            Vertex {
+                p: [1.0, 2.0, 3.0],
+                n: [0.0; 3],
+                t: [0.0; 2],
+            },
+            Vertex {
+                p: [4.0, 5.0, 6.0],
+                n: [0.0; 3],
+                t: [0.0; 2],
+            },
+        ];
+
+        let mut adapter = VertexDataAdapter::new(
+            typed_to_bytes(&*vertices),
+            std::mem::size_of::<Vertex>(),
+            offset_of!(Vertex, p),
+        ).unwrap();
+
+        let p = adapter.xyz_f32_at(0).unwrap();
+        assert_eq!(p, [1.0, 2.0, 3.0]);
+        let p = adapter.xyz_f32_at(1).unwrap();
+        assert_eq!(p, [4.0, 5.0, 6.0]);
+
+        adapter.xyz_f32_at(2).expect_err("should fail");
     }
 }

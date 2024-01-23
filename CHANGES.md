@@ -1,5 +1,10 @@
 # Changes
 
+## 0.2.0 (2024-01-23)
+
+* Updated dependencies.
+* **Breaking change**: New parameters to simplify API.
+
 ## 0.1.9 (2019-11-02)
 
 * Updated dependencies.

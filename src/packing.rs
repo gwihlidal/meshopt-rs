@@ -5,6 +5,12 @@ pub trait DecodePosition {
     fn decode_position(&self) -> [f32; 3];
 }
 
+impl DecodePosition for [f32; 3] {
+    fn decode_position(&self) -> [f32; 3] {
+        *self
+    }
+}
+
 pub trait FromVertex {
     fn fill_from_vertex(&mut self, vertex: &Vertex);
 }

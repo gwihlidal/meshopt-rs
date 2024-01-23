@@ -11,8 +11,8 @@ pub struct Meshlet<'data> {
 
 pub struct Meshlets {
     pub meshlets: Vec<ffi::meshopt_Meshlet>,
-    vertices: Vec<u32>,
-    triangles: Vec<u8>,
+    pub vertices: Vec<u32>,
+    pub triangles: Vec<u8>,
 }
 
 impl Meshlets {

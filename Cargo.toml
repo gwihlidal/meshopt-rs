@@ -1,6 +1,6 @@
 [package]
 name = "meshopt"
-version = "0.1.9"
+version = "0.2.0"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for mesh optimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"

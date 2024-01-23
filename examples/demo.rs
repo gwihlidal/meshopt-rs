@@ -656,6 +656,7 @@ fn simplify(mesh: &Mesh) {
                 ::std::cmp::min(src.len(), target_index_count),
                 target_error,
                 0,
+                None,
             );
         }
         lods.push(lod);

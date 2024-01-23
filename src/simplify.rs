@@ -1,5 +1,18 @@
 use crate::{ffi, DecodePosition, VertexDataAdapter};
 use std::mem;
+use bitflags::bitflags;
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct SimplifyOptions : u32 {
+        const None = 0;
+        /// Locks the vertices that lie on the topological border of the mesh in place such that
+        /// they don't move during simplification.
+        /// This can be valuable to simplify independent chunks of a mesh, for example terrain,
+        /// to ensure that individual levels of detail can be stitched together later without gaps.
+        const LockBorder = 1;
+    }
+}
 
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh
 /// appearance as much as possible.
@@ -13,7 +26,7 @@ pub fn simplify(
     vertices: &VertexDataAdapter<'_>,
     target_count: usize,
     target_error: f32,
-    options: u32,
+    options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
     let vertex_data = vertices.reader.get_ref();
@@ -30,7 +43,7 @@ pub fn simplify(
             vertices.vertex_stride,
             target_count,
             target_error,
-            options,
+            options.bits(),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -50,7 +63,7 @@ pub fn simplify_decoder<T: DecodePosition>(
     vertices: &[T],
     target_count: usize,
     target_error: f32,
-    options: u32,
+    options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
     let positions = vertices
@@ -68,7 +81,7 @@ pub fn simplify_decoder<T: DecodePosition>(
             mem::size_of::<f32>() * 3,
             target_count,
             target_error,
-            options,
+            options.bits(),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };

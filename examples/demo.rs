@@ -655,7 +655,7 @@ fn simplify(mesh: &Mesh) {
                 &vertex_adapter,
                 ::std::cmp::min(src.len(), target_index_count),
                 target_error,
-                0,
+                SimplifyOptions::None,
                 None,
             );
         }

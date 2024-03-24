@@ -159,3 +159,36 @@ pub fn simplify_sloppy_decoder<T: DecodePosition>(
     result.resize(index_count, 0u32);
     result
 }
+
+/// Returns the error scaling factor used by the simplifier to convert between absolute and relative extents
+///
+/// Absolute error must be *divided* by the scaling factor before passing it to `simplify` as `target_error`
+/// Relative error returned by `simplify` via `result_error` must be *multiplied* by the scaling factor to get absolute error.
+pub fn simplify_scale(vertices: &VertexDataAdapter<'_>) -> f32 {
+    unsafe {
+        ffi::meshopt_simplifyScale(
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        )
+    }
+}
+
+/// Returns the error scaling factor used by the simplifier to convert between absolute and relative extents
+///
+/// Absolute error must be *divided* by the scaling factor before passing it to `simplify` as `target_error`
+/// Relative error returned by `simplify` via `result_error` must be *multiplied* by the scaling factor to get absolute error.
+pub fn simplify_scale_decoder<T: DecodePosition>(vertices: &[T]) -> f32 {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+
+    unsafe {
+        ffi::meshopt_simplifyScale(
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+        )
+    }
+}

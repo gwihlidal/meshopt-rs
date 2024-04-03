@@ -1,5 +1,11 @@
 # Changes
 
+## 0.2.1 (2024-04-03)
+
+* Updated dependencies
+* Added `simplify_scale` and `simplify_scale_decoder` API functions
+* Added `simplify_with_locks` and `simplify_with_locks_decoder` API functions
+
 ## 0.2.0 (2024-01-23)
 
 * Updated dependencies.

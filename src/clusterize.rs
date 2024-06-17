@@ -52,10 +52,7 @@ impl Meshlets {
 /// The resulting data can be used to render meshes using `NVidia programmable mesh shading`
 /// pipeline, or in other cluster-based renderers.
 ///
-/// For maximum efficiency the index buffer being converted has to be optimized for vertex
-/// cache first.
-///
-/// Note: `max_vertices` must be <= 64 and `max_triangles` must be <= 126
+/// Note: `max_vertices` must be <= 255 and `max_triangles` must be <= 512 and divisible by 4.
 pub fn build_meshlets(
     indices: &[u32],
     vertices: &VertexDataAdapter<'_>,
@@ -86,7 +83,19 @@ pub fn build_meshlets(
             cone_weight,
         )
     };
-    meshlets.resize(count, unsafe { ::std::mem::zeroed() });
+    meshlets.truncate(count);
+
+    for i in 0..count {
+        let meshlet = &mut meshlets[i];
+        unsafe {
+            ffi::meshopt_optimizeMeshlet(
+                &mut meshlet_verts[meshlet.vertex_offset as usize],
+                &mut meshlet_tris[meshlet.triangle_offset as usize],
+                meshlet.triangle_count as usize,
+                meshlet.vertex_count as usize,
+            )
+        };
+    }
 
     Meshlets {
         meshlets,

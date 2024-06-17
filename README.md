@@ -23,7 +23,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-meshopt = "0.2.1"
+meshopt = "0.2.2"
 ```
 
 ## Example

@@ -11,6 +11,11 @@ bitflags! {
         /// This can be valuable to simplify independent chunks of a mesh, for example terrain,
         /// to ensure that individual levels of detail can be stitched together later without gaps.
         const LockBorder = 1;
+        /// Improve simplification performance assuming input indices are a sparse subset of the mesh.
+        /// Note that error becomes relative to subset extents.
+        const Sparse = 2;
+        /// Treat error limit and resulting error as absolute instead of relative to mesh extents.
+        const ErrorAbsolute = 4;
     }
 }
 

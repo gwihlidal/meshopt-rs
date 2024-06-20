@@ -1,5 +1,11 @@
 # Changes
 
+## 0.2.2 (2024-06-17)
+
+* Updated dependencies
+* Added `SimplifyOptions::Sparse` and `SimplifyOptions::ErrorAbsolute` options
+* Improved `build_meshlets` to automatically optimize meshlet triangle order for HW efficiency
+
 ## 0.2.1 (2024-04-03)
 
 * Updated dependencies

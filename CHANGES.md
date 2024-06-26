@@ -1,8 +1,8 @@
 # Changes
 
-## 0.2.2 (2024-06-17)
+## 0.3.0 (2024-06-26)
 
-* Updated dependencies
+* Upgraded meshoptimizer library to 0.21 (hash 47aafa533b439a78b53cd2854c177db61be7e666)
 * Added `SimplifyOptions::Sparse` and `SimplifyOptions::ErrorAbsolute` options
 * Improved `build_meshlets` to automatically optimize meshlet triangle order for HW efficiency
 

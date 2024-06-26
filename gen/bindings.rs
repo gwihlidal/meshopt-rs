@@ -395,7 +395,7 @@ pub const meshopt_EncodeExpMode_meshopt_EncodeExpSharedComponent: meshopt_Encode
 #[doc = " meshopt_encodeFilterExp encodes arbitrary (finite) floating-point data with 8-bit exponent and K-bit integer mantissa (1 <= K <= 24)."]
 #[doc = " Exponent can be shared between all components of a given vector as defined by stride or all values of a given component; stride must be divisible by 4."]
 #[doc = " Input data must contain stride/4 floats for every vector (count*stride/4 total)."]
-pub type meshopt_EncodeExpMode = ::std::os::raw::c_int;
+pub type meshopt_EncodeExpMode = ::std::os::raw::c_uint;
 extern "C" {
     pub fn meshopt_encodeFilterOct(
         destination: *mut ::std::os::raw::c_void,

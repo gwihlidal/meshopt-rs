@@ -93,7 +93,7 @@ pub fn build_meshlets(
                 &mut meshlet_tris[meshlet.triangle_offset as usize],
                 meshlet.triangle_count as usize,
                 meshlet.vertex_count as usize,
-            )
+            );
         };
     }
 

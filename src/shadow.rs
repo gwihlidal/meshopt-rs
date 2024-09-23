@@ -1,7 +1,9 @@
 use crate::{ffi, DecodePosition, VertexDataAdapter, VertexStream};
 
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
-/// attributes is necessary. All vertices that are binary equivalent (wrt first `vertex_size` bytes) map to
+/// attributes is necessary.
+///
+/// All vertices that are binary equivalent (wrt first `vertex_size` bytes) map to
 /// the first vertex in the original vertex buffer.
 ///
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
@@ -26,7 +28,9 @@ pub fn generate_shadow_indices(indices: &[u32], vertices: &VertexDataAdapter<'_>
 }
 
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
-/// attributes is necessary. All vertices that are binary equivalent (wrt first `vertex_size` bytes) map to
+/// attributes is necessary.
+///
+/// All vertices that are binary equivalent (wrt first `vertex_size` bytes) map to
 /// the first vertex in the original vertex buffer.
 ///
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
@@ -56,7 +60,9 @@ pub fn generate_shadow_indices_decoder<T: DecodePosition>(
 }
 
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
-/// attributes is necessary. All vertices that are binary equivalent (wrt specified streams) map to the
+/// attributes is necessary.
+///
+/// All vertices that are binary equivalent (wrt specified streams) map to the
 /// first vertex in the original vertex buffer.
 ///
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using

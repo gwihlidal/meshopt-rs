@@ -182,6 +182,7 @@ pub fn simplify_with_locks_decoder<T: DecodePosition>(
 }
 
 /// Reduces the number of triangles in the mesh, sacrificing mesh appearance for simplification performance.
+///
 /// The algorithm doesn't preserve mesh topology but is always able to reach target triangle count.
 ///
 /// The resulting index buffer references vertices from the original vertex buffer.
@@ -217,6 +218,7 @@ pub fn simplify_sloppy(
 }
 
 /// Reduces the number of triangles in the mesh, sacrificing mesh appearance for simplification performance.
+///
 /// The algorithm doesn't preserve mesh topology but is always able to reach target triangle count.
 ///
 /// The resulting index buffer references vertices from the original vertex buffer.

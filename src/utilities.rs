@@ -68,6 +68,7 @@ union FloatUInt {
 }
 
 /// Quantize a float into half-precision floating point value.
+///
 /// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest.
 /// Representable magnitude range: [6e-5; 65504].
 /// Maximum relative reconstruction error: 5e-4.
@@ -94,6 +95,7 @@ pub fn quantize_half(v: f32) -> u16 {
 }
 
 /// Quantize a float into a floating point value with a limited number of significant mantissa bits.
+///
 /// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest.
 /// Assumes N is in a valid mantissa precision range, which is 1..23
 #[inline(always)]

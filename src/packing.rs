@@ -89,6 +89,8 @@ impl FromVertex for PackedVertexOct {
 /// A basic Vertex type that can be used with most mesh processing functions.
 /// You don't _need_ to use this type, you can use your own type by implementing
 /// the `DecodePosition` trait and making a [`VertexDataAdapter`] from slices of it.
+///
+/// [`VertexDataAdapter`]: crate::VertexDataAdapter
 pub struct Vertex {
     pub p: [f32; 3],
     pub n: [f32; 3],

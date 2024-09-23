@@ -18,13 +18,13 @@ pub trait FromVertex {
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub struct PackedVertex {
-    /// Unsigned 16-bit value, use pos_offset/pos_scale to unpack
+    /// Unsigned 16-bit value, use `pos_offset/pos_scale` to unpack
     pub p: [u16; 4],
 
     /// Normalized signed 8-bit value
     pub n: [i8; 4],
 
-    /// Unsigned 16-bit value, use uv_offset/uv_scale to unpack
+    /// Unsigned 16-bit value, use `uv_offset/uv_scale` to unpack
     pub t: [u16; 2],
 }
 

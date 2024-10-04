@@ -40,7 +40,7 @@ travis-ci = { repository = "gwihlidal/meshopt-rs" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-float-cmp = "0.9"
+float-cmp = "0.10"
 thiserror = "1.0"
 bitflags = "2.4"
 
@@ -48,20 +48,16 @@ bitflags = "2.4"
 cc = { version = "1.0" }
 
 [build-dependencies.bindgen]
-version = "0.59"
+version = "0.70"
 optional = true
 
 [dev-dependencies]
-tobj = "3.2"
-miniz_oxide = "0.5"
+tobj = "4.0"
+miniz_oxide = "0.8"
 rand = "0.8"
 libc = "0.2"
 structopt = "0.3"
-memoffset = "0.6"
-
-[dev-dependencies.gltf]
-version = "0.16"
-features = ["extras", "names"]
+memoffset = "0.9"
 
 [profile.release]
 lto = true

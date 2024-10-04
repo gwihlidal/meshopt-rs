@@ -61,7 +61,6 @@ fn main() {
 fn generate_bindings(output_file: &str) {
     let bindings = bindgen::Builder::default()
         .header("vendor/src/meshoptimizer.h")
-        .rustfmt_bindings(true)
         .derive_debug(true)
         .impl_debug(true)
         .blocklist_type("__darwin_.*")

@@ -181,6 +181,101 @@ pub fn simplify_with_locks_decoder<T: DecodePosition>(
     result
 }
 
+/// Reduces the number of triangles in the mesh, attempting to preserve mesh
+/// appearance as much as possible, weighing vertex attributes by the supplied weights,
+/// while respecting the given vertex locks
+///
+/// The resulting index buffer references vertices from the original vertex buffer.
+///
+/// If the original vertex data isn't required, creating a compact vertex buffer
+/// using `optimize_vertex_fetch` is recommended.
+pub fn simplify_with_attributes_and_locks(
+    indices: &[u32],
+    vertices: &VertexDataAdapter<'_>,
+    vertex_attributes: &[f32],
+    vertex_attribute_weights: &[f32],
+    vertex_attributes_stride: usize,
+    vertex_lock: &[bool],
+    target_count: usize,
+    target_error: f32,
+    options: SimplifyOptions,
+    result_error: Option<&mut f32>,
+) -> Vec<u32> {
+    let vertex_data = vertices.reader.get_ref();
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
+    let positions = unsafe { vertex_data.add(vertices.position_offset) };
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let index_count = unsafe {
+        ffi::meshopt_simplifyWithAttributes(
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
+            indices.len(),
+            positions.cast::<f32>(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            vertex_attributes.as_ptr(),
+            vertex_attributes_stride,
+            vertex_attribute_weights.as_ptr(),
+            vertex_attribute_weights.len(),
+            vertex_lock.as_ptr().cast(),
+            target_count,
+            target_error,
+            options.bits(),
+            result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
+        )
+    };
+    result.resize(index_count, 0u32);
+    result
+}
+
+/// Reduces the number of triangles in the mesh, attempting to preserve mesh
+/// appearance as much as possible, weighing vertex attributes by the supplied weights,
+/// while respecting the given vertex locks
+///
+/// The resulting index buffer references vertices from the original vertex buffer.
+///
+/// If the original vertex data isn't required, creating a compact vertex buffer
+/// using `optimize_vertex_fetch` is recommended.
+pub fn simplify_with_attributes_and_locks_decoder<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+    vertex_attributes: &[f32],
+    vertex_attribute_weights: &[f32],
+    vertex_attributes_stride: usize,
+    vertex_lock: &[bool],
+    target_count: usize,
+    target_error: f32,
+    options: SimplifyOptions,
+    result_error: Option<&mut f32>,
+) -> Vec<u32> {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let index_count = unsafe {
+        ffi::meshopt_simplifyWithAttributes(
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
+            indices.len(),
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+            vertex_attributes.as_ptr(),
+            vertex_attributes_stride,
+            vertex_attribute_weights.as_ptr(),
+            vertex_attribute_weights.len(),
+            vertex_lock.as_ptr().cast(),
+            target_count,
+            target_error,
+            options.bits(),
+            result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
+        )
+    };
+    result.resize(index_count, 0u32);
+    result
+}
+
 /// Reduces the number of triangles in the mesh, sacrificing mesh appearance for simplification performance.
 ///
 /// The algorithm doesn't preserve mesh topology but is always able to reach target triangle count.

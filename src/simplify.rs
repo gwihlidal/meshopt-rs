@@ -189,6 +189,7 @@ pub fn simplify_with_locks_decoder<T: DecodePosition>(
 ///
 /// If the original vertex data isn't required, creating a compact vertex buffer
 /// using `optimize_vertex_fetch` is recommended.
+#[allow(clippy::too_many_arguments)]
 pub fn simplify_with_attributes_and_locks(
     indices: &[u32],
     vertices: &VertexDataAdapter<'_>,
@@ -236,6 +237,7 @@ pub fn simplify_with_attributes_and_locks(
 ///
 /// If the original vertex data isn't required, creating a compact vertex buffer
 /// using `optimize_vertex_fetch` is recommended.
+#[allow(clippy::too_many_arguments)]
 pub fn simplify_with_attributes_and_locks_decoder<T: DecodePosition>(
     indices: &[u32],
     vertices: &[T],

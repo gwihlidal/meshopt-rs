@@ -1,5 +1,9 @@
 # Changes
 
+## 0.4.0 (2024-10-25)
+
+* Upgraded meshoptimizer library to 0.22 (hash 4affad044571506a5724c9a6f15424f43e86f731)
+
 ## 0.3.0 (2024-06-26)
 
 * Upgraded meshoptimizer library to 0.21 (hash 47aafa533b439a78b53cd2854c177db61be7e666)
@@ -64,7 +68,7 @@
 ## 0.1.3 (2018-12-07)
 
 * Rust 2018 Edition.
-  
+
 ## 0.1.2 (2018-12-04)
 
 * Upgraded meshoptimizer library.

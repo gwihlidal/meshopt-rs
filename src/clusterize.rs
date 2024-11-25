@@ -83,6 +83,14 @@ pub fn build_meshlets(
             cone_weight,
         )
     };
+
+    let last_meshlet = meshlets[count - 1];
+    meshlet_verts
+        .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
+    meshlet_tris.truncate(
+        last_meshlet.triangle_offset as usize
+            + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
+    );
     meshlets.truncate(count);
 
     for meshlet in meshlets.iter_mut().take(count) {

@@ -99,46 +99,108 @@ pub use crate::{
     simplify::*, stripify::*, utilities::*,
 };
 use std::marker::PhantomData;
+use std::mem::size_of;
 
 /// Vertex attribute stream, similar to `glVertexPointer`
 ///
 /// Each element takes size bytes, with stride controlling
 /// the spacing between successive elements.
 #[derive(Debug, Copy, Clone)]
+#[repr(C)] // repr(C) matches the ffi struct which should eliminate one copy when converting to ffi::meshopt_Stream
 pub struct VertexStream<'a> {
     /// Pointer to buffer which contains vertex data.
-    pub data: *const u8,
+    data: *const u8,
     /// Space between vertices inside the buffer (in bytes).
-    pub stride: usize,
+    stride: usize,
     /// The size in bytes of the vertex attribute this Stream is representing.
-    pub size: usize,
+    size: usize,
 
-    _marker: PhantomData<&'a ()>,
+    _marker: PhantomData<&'a [u8]>,
 }
 
 impl<'a> VertexStream<'a> {
-    /// Create a `VertexStream` for a buffer consisting only of elements of type `T`.
-    pub fn new<T>(ptr: *const T) -> VertexStream<'a> {
-        Self::new_with_stride::<T, T>(ptr, std::mem::size_of::<T>())
+    /// Create a new `VertexStream` from a slice of bytes.
+    /// The `stride` parameter controls the spacing between successive elements.
+    /// The `size` parameter controls the size in bytes of the vertex attribute this Stream is representing.
+    ///
+    /// You can also use `new_from_slice` to create a `VertexStream` from a slice of typed data.
+    ///
+    /// # Errors
+    /// Returns an error if the `data` slice is not evenly divisible by `stride` or if `size` is greater than `stride`.
+    /// # Example
+    /// ```
+    /// use meshopt::VertexStream;
+    /// let data = vec![0u8; 12];
+    /// let stream = VertexStream::new(&data, 12, 12).unwrap();
+    /// ```
+    ///
+    pub fn new(data: &'a [u8], stride: usize, size: usize) -> Result<VertexStream<'a>> {
+        let vertex_count = data.len() / stride;
+        if data.len() % vertex_count != 0 {
+            return Err(Error::memory_dynamic(format!(
+                "vertex data length ({}) must be evenly divisible by stride ({})",
+                data.len(),
+                stride
+            )));
+        }
+
+        if size > stride {
+            return Err(Error::memory_dynamic(format!(
+                "size ({}) must be less than or equal to stride ({})",
+                size, stride
+            )));
+        }
+
+        let data = data.as_ptr();
+
+        Ok(Self {
+            data,
+            stride,
+            size,
+            _marker: Default::default(),
+        })
     }
 
-    /// Create a `VertexStream` for a buffer that contains elements of type `VertexType`.
+    /// Create a new `VertexStream` from a slice of bytes without checking the parameters.
     ///
-    /// The buffer pointed to by `ptr` starts with one value of `T`, the next value of T
-    /// is `*(ptr + stride)`.
-    ///
-    /// (The `VertexType` does not need to be a concrete type,
-    /// it is only used here to avoid casts on the caller side).
-    pub fn new_with_stride<T, VertexType>(
-        ptr: *const VertexType,
-        stride: usize,
-    ) -> VertexStream<'a> {
-        VertexStream {
-            data: ptr.cast(),
+    /// # Safety
+    /// The `data` slice must be evenly divisible by `stride` and `size` must be less than or equal to `stride`.
+    pub unsafe fn new_unchecked(data: &'a [u8], stride: usize, size: usize) -> VertexStream<'a> {
+        let data = data.as_ptr();
+        Self {
+            data,
             stride,
-            size: std::mem::size_of::<T>(),
-
-            _marker: PhantomData,
+            size,
+            _marker: Default::default(),
         }
+    }
+
+    /// Create a new `VertexStream` from a slice of typed vertices.
+    /// Its stride and size are calculated based on the size `T` of the slice elements.
+    pub fn new_from_slice<T>(data: &[T]) -> VertexStream<'a> {
+        let stride = size_of::<T>();
+        let size = stride;
+        let data = typed_to_bytes(data);
+        let data = data.as_ptr();
+        Self {
+            data,
+            stride,
+            size,
+            _marker: Default::default(),
+        }
+    }
+
+    // We need getters as the fields cant be public due to safety reasons
+
+    pub fn data(&self) -> *const u8 {
+        self.data
+    }
+
+    pub fn stride(&self) -> usize {
+        self.stride
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 }

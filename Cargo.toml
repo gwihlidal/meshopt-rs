@@ -41,7 +41,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 float-cmp = "0.10"
-thiserror = "1.0"
+thiserror = "2.0"
 bitflags = "2.4"
 
 [build-dependencies]

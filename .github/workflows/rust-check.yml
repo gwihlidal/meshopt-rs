@@ -1,0 +1,36 @@
+name: rust-build
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v2
+        with:
+          rust-version: '1.68.0'
+
+      - name: Rustfmt
+        run: cargo fmt --verbose --all --check
+
+      - name: Clippy
+        run: cargo clippy --verbose --tests --examples
+
+      - name: Tests
+        run: cargo test --verbose

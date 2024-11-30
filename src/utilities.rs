@@ -192,7 +192,7 @@ impl<'a> VertexDataAdapter<'a> {
     }
 }
 
-impl<'a> Read for VertexDataAdapter<'a> {
+impl Read for VertexDataAdapter<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         self.reader.read(buf)
     }

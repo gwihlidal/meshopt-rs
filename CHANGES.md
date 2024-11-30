@@ -1,5 +1,9 @@
 # Changes
 
+## Unreleased
+
+* **Breaking change**: Simplify `VertexStream` API to use `&[u8]` instead of `*const T` which could easily lead to UB. For simple cases, `new_from_slice` has also been added.
+
 ## 0.4.0 (2024-10-25)
 
 * Upgraded meshoptimizer library to 0.22 (hash 4affad044571506a5724c9a6f15424f43e86f731)

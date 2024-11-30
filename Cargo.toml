@@ -36,7 +36,6 @@ include = [
 edition = "2021"
 
 [badges]
-travis-ci = { repository = "gwihlidal/meshopt-rs" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]

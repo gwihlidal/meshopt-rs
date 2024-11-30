@@ -1,7 +1,6 @@
 meshopt
 ========
 
-[![meshopt on travis-ci.com](https://travis-ci.com/gwihlidal/meshopt-rs.svg?branch=master)](https://travis-ci.com/gwihlidal/meshopt-rs)
 [![Latest version](https://img.shields.io/crates/v/meshopt.svg)](https://crates.io/crates/meshopt)
 [![Documentation](https://docs.rs/meshopt/badge.svg)](https://docs.rs/meshopt)
 [![](https://tokei.rs/b1/github/gwihlidal/meshopt-rs)](https://github.com/gwihlidal/meshopt-rs)

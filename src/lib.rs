@@ -177,7 +177,7 @@ impl<'a> VertexStream<'a> {
 
     /// Create a new `VertexStream` from a slice of typed vertices.
     /// Its stride and size are calculated based on the size `T` of the slice elements.
-    pub fn new_from_slice<T>(data: &[T]) -> VertexStream<'a> {
+    pub fn new_from_slice<T>(data: &'a [T]) -> VertexStream<'a> {
         let stride = size_of::<T>();
         let size = stride;
         let data = typed_to_bytes(data);

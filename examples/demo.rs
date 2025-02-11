@@ -2,7 +2,7 @@
 
 use memoffset::offset_of;
 use meshopt::*;
-use rand::{seq::SliceRandom, thread_rng};
+use rand::seq::SliceRandom;
 use std::{
     fmt,
     fs::File,
@@ -365,7 +365,7 @@ fn opt_none(_: &mut Mesh) {
 fn opt_random_shuffle(mesh: &mut Mesh) {
     let face_count = mesh.indices.len() / 3;
     let mut faces: Vec<usize> = (0..face_count).collect();
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     faces.shuffle(&mut rng);
 
     let mut result: Vec<u32> = Vec::with_capacity(mesh.indices.len());

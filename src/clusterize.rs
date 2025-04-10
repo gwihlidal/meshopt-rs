@@ -400,7 +400,7 @@ mod tests {
             PositionDataAdapter {
                 data: typed_to_bytes(vbr),
                 position_count: 4,
-                position_stride: 4 * size_of::<f32>(),
+                position_stride: 4 * ::std::mem::size_of::<f32>(),
                 position_offset: 0,
             },
             None,
@@ -414,13 +414,13 @@ mod tests {
             PositionDataAdapter {
                 data: typed_to_bytes(vbr),
                 position_count: 4,
-                position_stride: 4 * size_of::<f32>(),
+                position_stride: 4 * ::std::mem::size_of::<f32>(),
                 position_offset: 0,
             },
             Some(RadiusDataAdapter {
                 data: typed_to_bytes(eps),
                 radius_count: 4,
-                radius_stride: size_of::<f32>(),
+                radius_stride: ::std::mem::size_of::<f32>(),
                 radius_offset: 0,
             }),
         );
@@ -434,14 +434,14 @@ mod tests {
             PositionDataAdapter {
                 data: typed_to_bytes(vbr),
                 position_count: 4,
-                position_stride: 4 * size_of::<f32>(),
+                position_stride: 4 * ::std::mem::size_of::<f32>(),
                 position_offset: 0,
             },
             Some(RadiusDataAdapter {
                 data: typed_to_bytes(vbr),
                 radius_count: 4,
-                radius_stride: 4 * size_of::<f32>(),
-                radius_offset: 3 * size_of::<f32>(),
+                radius_stride: 4 * ::std::mem::size_of::<f32>(),
+                radius_offset: 3 * ::std::mem::size_of::<f32>(),
             }),
         );
 

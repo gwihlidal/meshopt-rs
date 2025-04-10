@@ -238,7 +238,7 @@ mod tests {
 
         let mut adapter = VertexDataAdapter::new(
             typed_to_bytes(&vertices),
-            size_of::<Vertex>(),
+            ::std::mem::size_of::<Vertex>(),
             offset_of!(Vertex, p),
         )
         .unwrap();

@@ -217,9 +217,9 @@ impl Read for VertexDataAdapter<'_> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{typed_to_bytes, Vertex, VertexDataAdapter};
     use memoffset::offset_of;
-    use super::*;
 
     #[test]
     fn test_xyz_f32_at() {
@@ -258,7 +258,7 @@ mod tests {
             let q = quantize_half(f);
             // dont care about denormals
             if !f.is_normal() {
-                continue
+                continue;
             }
             assert_eq!(i, q, "quantization error for {i}: {f} -> {q}");
         }

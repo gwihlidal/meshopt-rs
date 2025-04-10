@@ -182,6 +182,41 @@ pub fn build_meshlets_flex(
     }
 }
 
+/// Cluster partitioner
+/// Partitions clusters into groups of similar size, prioritizing grouping clusters that share vertices.
+///
+///  `destination` must contain enough space for the resulting partition data (`cluster_index_counts.len()` elements)
+///  `destination[i]` will contain the partition id for cluster i, with the total number of partitions returned by the function.
+///  `cluster_indices` should have the vertex indices referenced by each cluster, stored sequentially
+///  `cluster_index_counts` should have the number of indices in each cluster; sum of all `cluster_index_counts` must be equal to `cluster_indices.len()`
+///  `target_partition_size` is a target size for each partition, in clusters; the resulting partitions may be smaller or larger
+///
+/// The returned value is the number of partitions created. (`destination` can be sliced to the size of the returned value)
+pub fn partition_clusters(
+    destination: &mut [u32],
+    cluster_indices: &[u32],
+    cluster_index_counts: &[u32],
+    vertex_count: usize,
+    target_partition_size: usize,
+) -> usize {
+    assert_eq!(destination.len(), cluster_index_counts.len());
+    debug_assert_eq!(
+        cluster_indices.len(),
+        cluster_index_counts.iter().sum::<u32>() as usize
+    );
+    unsafe {
+        ffi::meshopt_partitionClusters(
+            destination.as_mut_ptr(),
+            cluster_indices.as_ptr(),
+            cluster_indices.len(),
+            cluster_index_counts.as_ptr(),
+            cluster_index_counts.len(),
+            vertex_count,
+            target_partition_size,
+        )
+    }
+}
+
 /// Creates bounding volumes that can be used for frustum, backface and occlusion culling.
 ///
 /// For backface culling with orthographic projection, use the following formula to reject backfacing clusters:
@@ -246,26 +281,31 @@ pub struct Sphere {
 
 /// Sphere bounds generator
 /// Creates bounding sphere around a set of points or a set of spheres;
-pub fn compute_sphere_bounds(positions: PositionDataAdapter<'_>, radius: Option<RadiusDataAdapter<'_>>) -> Sphere {
+pub fn compute_sphere_bounds(
+    positions: PositionDataAdapter<'_>,
+    radius: Option<RadiusDataAdapter<'_>>,
+) -> Sphere {
     if let Some(ref r) = radius {
         assert_eq!(positions.position_count, r.radius_count);
     }
     assert!(positions.data.len() >= positions.position_count * positions.position_stride);
     unsafe {
         let (radius_ptr, radius_stride) = match radius {
-            Some(r) => {
-                (r.data.as_ptr().add(r.radius_offset).cast(), r.radius_stride)
-            },
+            Some(r) => (r.data.as_ptr().add(r.radius_offset).cast(), r.radius_stride),
             None => (std::ptr::null(), 0),
         };
         let bounds = ffi::meshopt_computeSphereBounds(
-            positions.data.as_ptr().add(positions.position_offset).cast(),
+            positions
+                .data
+                .as_ptr()
+                .add(positions.position_offset)
+                .cast(),
             positions.position_count,
             positions.position_stride,
             radius_ptr,
             radius_stride,
         );
-        
+
         Sphere {
             center: [bounds.center[0], bounds.center[1], bounds.center[2]],
             radius: bounds.radius,
@@ -345,14 +385,16 @@ pub fn compute_meshlet_bounds_decoder<T: DecodePosition>(
 
 #[cfg(test)]
 mod tests {
-    use crate::typed_to_bytes;
     use super::*;
+    use crate::typed_to_bytes;
     #[test]
     fn test_cluster_sphere_bounds() {
-        let vbr: &[f32] = &[0.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 1.0,
-        0.0, 0.0, 1.0, 2.0,
-        1.0, 0.0, 1.0, 3.0,];
+        let vbr: &[f32] = &[
+            0.0, 0.0, 0.0, 0.0, //
+            0.0, 1.0, 0.0, 1.0, //
+            0.0, 0.0, 1.0, 2.0, //
+            1.0, 0.0, 1.0, 3.0,
+        ];
 
         let bounds = compute_sphere_bounds(
             PositionDataAdapter {
@@ -407,5 +449,59 @@ mod tests {
         assert!((bounds.center[0] - 1.0).abs() < 1e-2);
         assert!((bounds.center[1] - 0.0).abs() < 1e-2);
         assert!((bounds.center[2] - 1.0).abs() < 1e-2);
+    }
+
+    #[test]
+    fn test_partition_basic() {
+        // 0   1   2
+        //     3
+        // 4 5 6 7 8
+        //     9
+        // 10 11  12
+        let cluster_indices: &[u32] = &[
+            0, 1, 3, 4, 5, 6, //
+            1, 2, 3, 6, 7, 8, //
+            4, 5, 6, 9, 10, 11, //
+            6, 7, 8, 9, 11, 12, //
+        ];
+
+        let cluster_index_counts: &[u32] = &[6, 6, 6, 6];
+        let mut partitions = vec![0u32; cluster_index_counts.len()];
+
+        assert_eq!(
+            partition_clusters(
+                &mut partitions,
+                cluster_indices,
+                cluster_index_counts,
+                13,
+                1
+            ),
+            4
+        );
+        assert_eq!(partitions, [0, 1, 2, 3]);
+
+        assert_eq!(
+            partition_clusters(
+                &mut partitions,
+                cluster_indices,
+                cluster_index_counts,
+                13,
+                2
+            ),
+            2
+        );
+        assert_eq!(partitions, [0, 0, 1, 1]);
+
+        assert_eq!(
+            partition_clusters(
+                &mut partitions,
+                cluster_indices,
+                cluster_index_counts,
+                13,
+                4
+            ),
+            1
+        );
+        assert_eq!(partitions, [0, 0, 0, 0]);
     }
 }

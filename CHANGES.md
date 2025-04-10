@@ -4,6 +4,7 @@
 
 * Upgraded meshoptimizer library to 0.23 (hash 3e9d1ff3135794f519f3237515277c8d9a3fd3f2)
 * Added `build_meshlets_flex` API function
+* Added `dequantize_half` utility
 
 ## 0.4.1 (2024-12-22)
 

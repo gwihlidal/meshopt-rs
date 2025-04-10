@@ -61,12 +61,6 @@ pub fn quantize_snorm(v: f32, n: u32) -> i32 {
     (v * scale + round) as i32
 }
 
-#[repr(C)]
-union FloatUInt {
-    fl: f32,
-    ui: u32,
-}
-
 /// Quantize a float into half-precision floating point value.
 ///
 /// Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest.
@@ -74,8 +68,7 @@ union FloatUInt {
 /// Maximum relative reconstruction error: 5e-4.
 #[inline(always)]
 pub fn quantize_half(v: f32) -> u16 {
-    let u = FloatUInt { fl: v };
-    let ui = unsafe { u.ui };
+    let ui = f32::to_bits(v);
     let s = ((ui >> 16) & 0x8000) as i32;
     let em = (ui & 0x7fff_ffff) as i32;
 
@@ -100,8 +93,7 @@ pub fn quantize_half(v: f32) -> u16 {
 /// Assumes N is in a valid mantissa precision range, which is 1..23
 #[inline(always)]
 pub fn quantize_float(v: f32, n: i32) -> f32 {
-    let mut u = FloatUInt { fl: v };
-    let mut ui = unsafe { u.ui };
+    let mut ui = f32::to_bits(v);
 
     let mask = (1 << (23 - n)) - 1;
     let round = (1 << (23 - n)) >> 1;
@@ -116,8 +108,33 @@ pub fn quantize_float(v: f32, n: i32) -> f32 {
     // flush denormals to zero
     ui = if e == 0 { 0 } else { ui };
 
-    u.ui = ui;
-    unsafe { u.fl }
+    f32::from_bits(ui)
+}
+
+/// Reverse quantization of a half-precision (as defined by IEEE-754 fp16) floating point value
+///
+/// Preserves Inf/NaN, flushes denormals to zero
+#[inline(always)]
+pub fn dequantize_half(h: u16) -> f32 {
+    let s = ((h & 0x8000) as u32) << 16;
+    let em = (h & 0x7fff) as u32;
+
+    // bias exponent and pad mantissa with 0; 112 is relative exponent bias (127-15)
+    let mut r = (em + (112 << 10)) << 13;
+
+    // denormal: flush to zero
+    if em < (1 << 10) {
+        r = 0;
+    }
+
+    // infinity/NaN; note that we preserve NaN payload as a byproduct of unifying inf/nan cases
+    // 112 is an exponent bias fixup; since we already applied it once, applying it twice converts 31 to 255
+    if em >= (31 << 10) {
+        r += 112 << 23;
+    }
+
+    let bits = s | r;
+    f32::from_bits(bits)
 }
 
 #[inline(always)]
@@ -202,6 +219,7 @@ impl Read for VertexDataAdapter<'_> {
 mod tests {
     use crate::{typed_to_bytes, Vertex, VertexDataAdapter};
     use memoffset::offset_of;
+    use super::*;
 
     #[test]
     fn test_xyz_f32_at() {
@@ -220,7 +238,7 @@ mod tests {
 
         let mut adapter = VertexDataAdapter::new(
             typed_to_bytes(&vertices),
-            std::mem::size_of::<Vertex>(),
+            size_of::<Vertex>(),
             offset_of!(Vertex, p),
         )
         .unwrap();
@@ -231,5 +249,18 @@ mod tests {
         assert_eq!(p, [4.0, 5.0, 6.0]);
 
         adapter.xyz_f32_at(2).expect_err("should fail");
+    }
+
+    #[test]
+    fn quantize_roundtrip() {
+        for i in u16::MIN..u16::MAX {
+            let f = dequantize_half(i);
+            let q = quantize_half(f);
+            // dont care about denormals
+            if !f.is_normal() {
+                continue
+            }
+            assert_eq!(i, q, "quantization error for {i}: {f} -> {q}");
+        }
     }
 }

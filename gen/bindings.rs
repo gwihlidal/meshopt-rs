@@ -191,6 +191,13 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
+    #[doc = " Get encoded index format version\n Returns format version of the encoded index buffer/sequence, or -1 if the buffer header is invalid\n Note that a non-negative value doesn't guarantee that the buffer will be decoded correctly if the input is malformed."]
+    pub fn meshopt_decodeIndexVersion(
+        buffer: *const ::std::os::raw::c_uchar,
+        buffer_size: usize,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
     #[doc = " Index sequence encoder\n Encodes index sequence into an array of bytes that is generally smaller and compresses better compared to original.\n Input index sequence can represent arbitrary topology; for triangle lists meshopt_encodeIndexBuffer is likely to be better.\n Returns encoded data size on success, 0 on error; the only error condition is if buffer doesn't have enough space\n\n buffer must contain enough space for the encoded index sequence (use meshopt_encodeIndexSequenceBound to compute worst case size)"]
     pub fn meshopt_encodeIndexSequence(
         buffer: *mut ::std::os::raw::c_uchar,
@@ -226,7 +233,18 @@ extern "C" {
     pub fn meshopt_encodeVertexBufferBound(vertex_count: usize, vertex_size: usize) -> usize;
 }
 extern "C" {
-    #[doc = " Set vertex encoder format version\n version must specify the data format version to encode; valid values are 0 (decodable by all library versions)"]
+    #[doc = " Experimental: Vertex buffer encoder\n Encodes vertex data just like meshopt_encodeVertexBuffer, but allows to override compression level.\n For compression level to take effect, the vertex encoding version must be set to 1 via meshopt_encodeVertexVersion.\n The default compression level implied by meshopt_encodeVertexBuffer is 2.\n\n level should be in the range [0, 3] with 0 being the fastest and 3 being the slowest and producing the best compression ratio."]
+    pub fn meshopt_encodeVertexBufferLevel(
+        buffer: *mut ::std::os::raw::c_uchar,
+        buffer_size: usize,
+        vertices: *const ::std::os::raw::c_void,
+        vertex_count: usize,
+        vertex_size: usize,
+        level: ::std::os::raw::c_int,
+    ) -> usize;
+}
+extern "C" {
+    #[doc = " Set vertex encoder format version\n version must specify the data format version to encode; valid values are 0 (decodable by all library versions) and 1 (decodable by 0.23+)"]
     pub fn meshopt_encodeVertexVersion(version: ::std::os::raw::c_int);
 }
 extern "C" {
@@ -235,6 +253,13 @@ extern "C" {
         destination: *mut ::std::os::raw::c_void,
         vertex_count: usize,
         vertex_size: usize,
+        buffer: *const ::std::os::raw::c_uchar,
+        buffer_size: usize,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    #[doc = " Get encoded vertex format version\n Returns format version of the encoded vertex buffer, or -1 if the buffer header is invalid\n Note that a non-negative value doesn't guarantee that the buffer will be decoded correctly if the input is malformed."]
+    pub fn meshopt_decodeVertexVersion(
         buffer: *const ::std::os::raw::c_uchar,
         buffer_size: usize,
     ) -> ::std::os::raw::c_int;
@@ -311,7 +336,7 @@ extern "C" {
     ) -> usize;
 }
 extern "C" {
-    #[doc = " Experimental: Mesh simplifier with attribute metric\n The algorithm enhances meshopt_simplify by incorporating attribute values into the error metric used to prioritize simplification order; see meshopt_simplify documentation for details.\n Note that the number of attributes affects memory requirements and running time; this algorithm requires ~1.5x more memory and time compared to meshopt_simplify when using 4 scalar attributes.\n\n vertex_attributes should have attribute_count floats for each vertex\n attribute_weights should have attribute_count floats in total; the weights determine relative priority of attributes between each other and wrt position\n attribute_count must be <= 32\n vertex_lock can be NULL; when it's not NULL, it should have a value for each vertex; 1 denotes vertices that can't be moved"]
+    #[doc = " Mesh simplifier with attribute metric\n The algorithm enhances meshopt_simplify by incorporating attribute values into the error metric used to prioritize simplification order; see meshopt_simplify documentation for details.\n Note that the number of attributes affects memory requirements and running time; this algorithm requires ~1.5x more memory and time compared to meshopt_simplify when using 4 scalar attributes.\n\n vertex_attributes should have attribute_count floats for each vertex\n attribute_weights should have attribute_count floats in total; the weights determine relative priority of attributes between each other and wrt position\n attribute_count must be <= 32\n vertex_lock can be NULL; when it's not NULL, it should have a value for each vertex; 1 denotes vertices that can't be moved"]
     pub fn meshopt_simplifyWithAttributes(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -345,7 +370,7 @@ extern "C" {
     ) -> usize;
 }
 extern "C" {
-    #[doc = " Experimental: Point cloud simplifier\n Reduces the number of points in the cloud to reach the given target\n Returns the number of points after simplification, with destination containing new index data\n The resulting index buffer references vertices from the original vertex buffer.\n If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended.\n\n destination must contain enough space for the target index buffer (target_vertex_count elements)\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n vertex_colors should can be NULL; when it's not NULL, it should have float3 color in the first 12 bytes of each vertex\n color_weight determines relative priority of color wrt position; 1.0 is a safe default"]
+    #[doc = " Point cloud simplifier\n Reduces the number of points in the cloud to reach the given target\n Returns the number of points after simplification, with destination containing new index data\n The resulting index buffer references vertices from the original vertex buffer.\n If the original vertex data isn't required, creating a compact vertex buffer using meshopt_optimizeVertexFetch is recommended.\n\n destination must contain enough space for the target index buffer (target_vertex_count elements)\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n vertex_colors can be NULL; when it's not NULL, it should have float3 color in the first 12 bytes of each vertex\n color_weight determines relative priority of color wrt position; 1.0 is a safe default"]
     pub fn meshopt_simplifyPoints(
         destination: *mut ::std::os::raw::c_uint,
         vertex_positions: *const f32,
@@ -451,7 +476,7 @@ pub struct meshopt_Meshlet {
     pub triangle_count: ::std::os::raw::c_uint,
 }
 extern "C" {
-    #[doc = " Meshlet builder\n Splits the mesh into a set of meshlets where each meshlet has a micro index buffer indexing into meshlet vertices that refer to the original vertex buffer\n The resulting data can be used to render meshes using NVidia programmable mesh shading pipeline, or in other cluster-based renderers.\n When targeting mesh shading hardware, for maximum efficiency meshlets should be further optimized using meshopt_optimizeMeshlet.\n When using buildMeshlets, vertex positions need to be provided to minimize the size of the resulting clusters.\n When using buildMeshletsScan, for maximum efficiency the index buffer being converted has to be optimized for vertex cache first.\n\n meshlets must contain enough space for all meshlets, worst case size can be computed with meshopt_buildMeshletsBound\n meshlet_vertices must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_vertices\n meshlet_triangles must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_triangles * 3\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n max_vertices and max_triangles must not exceed implementation limits (max_vertices <= 255 - not 256!, max_triangles <= 512; max_triangles must be divisible by 4)\n cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1 otherwise to balance between cluster size and cone culling efficiency"]
+    #[doc = " Meshlet builder\n Splits the mesh into a set of meshlets where each meshlet has a micro index buffer indexing into meshlet vertices that refer to the original vertex buffer\n The resulting data can be used to render meshes using NVidia programmable mesh shading pipeline, or in other cluster-based renderers.\n When targeting mesh shading hardware, for maximum efficiency meshlets should be further optimized using meshopt_optimizeMeshlet.\n When using buildMeshlets, vertex positions need to be provided to minimize the size of the resulting clusters.\n When using buildMeshletsScan, for maximum efficiency the index buffer being converted has to be optimized for vertex cache first.\n\n meshlets must contain enough space for all meshlets, worst case size can be computed with meshopt_buildMeshletsBound\n meshlet_vertices must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_vertices\n meshlet_triangles must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_triangles * 3\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n max_vertices and max_triangles must not exceed implementation limits (max_vertices <= 256, max_triangles <= 512; max_triangles must be divisible by 4)\n cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1 otherwise to balance between cluster size and cone culling efficiency"]
     pub fn meshopt_buildMeshlets(
         meshlets: *mut meshopt_Meshlet,
         meshlet_vertices: *mut ::std::os::raw::c_uint,
@@ -486,7 +511,25 @@ extern "C" {
     ) -> usize;
 }
 extern "C" {
-    #[doc = " Experimental: Meshlet optimizer\n Reorders meshlet vertices and triangles to maximize locality to improve rasterizer throughput\n\n meshlet_triangles and meshlet_vertices must refer to meshlet triangle and vertex index data; when buildMeshlets* is used, these\n need to be computed from meshlet's vertex_offset and triangle_offset\n triangle_count and vertex_count must not exceed implementation limits (vertex_count <= 255 - not 256!, triangle_count <= 512)"]
+    #[doc = " Experimental: Meshlet builder with flexible cluster sizes\n Splits the mesh into a set of meshlets, similarly to meshopt_buildMeshlets, but allows to specify minimum and maximum number of triangles per meshlet.\n Clusters between min and max triangle counts are split when the cluster size would have exceeded the expected cluster size by more than split_factor.\n Additionally, allows to switch to axis aligned clusters by setting cone_weight to a negative value.\n\n meshlets must contain enough space for all meshlets, worst case size can be computed with meshopt_buildMeshletsBound using min_triangles (not max!)\n meshlet_vertices must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_vertices\n meshlet_triangles must contain enough space for all meshlets, worst case size is equal to max_meshlets * max_triangles * 3\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n max_vertices, min_triangles and max_triangles must not exceed implementation limits (max_vertices <= 256, max_triangles <= 512; min_triangles <= max_triangles; both min_triangles and max_triangles must be divisible by 4)\n cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1 otherwise to balance between cluster size and cone culling efficiency; additionally, cone_weight can be set to a negative value to prioritize axis aligned clusters (for raytracing) instead\n split_factor should be set to a non-negative value; when greater than 0, clusters that have large bounds may be split unless they are under the min_triangles threshold"]
+    pub fn meshopt_buildMeshletsFlex(
+        meshlets: *mut meshopt_Meshlet,
+        meshlet_vertices: *mut ::std::os::raw::c_uint,
+        meshlet_triangles: *mut ::std::os::raw::c_uchar,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+        max_vertices: usize,
+        min_triangles: usize,
+        max_triangles: usize,
+        cone_weight: f32,
+        split_factor: f32,
+    ) -> usize;
+}
+extern "C" {
+    #[doc = " Meshlet optimizer\n Reorders meshlet vertices and triangles to maximize locality to improve rasterizer throughput\n\n meshlet_triangles and meshlet_vertices must refer to meshlet triangle and vertex index data; when buildMeshlets* is used, these\n need to be computed from meshlet's vertex_offset and triangle_offset\n triangle_count and vertex_count must not exceed implementation limits (vertex_count <= 256, triangle_count <= 512)"]
     pub fn meshopt_optimizeMeshlet(
         meshlet_vertices: *mut ::std::os::raw::c_uint,
         meshlet_triangles: *mut ::std::os::raw::c_uchar,
@@ -526,6 +569,28 @@ extern "C" {
     ) -> meshopt_Bounds;
 }
 extern "C" {
+    #[doc = " Experimental: Sphere bounds generator\n Creates bounding sphere around a set of points or a set of spheres; returns the center and radius of the sphere, with other fields of the result set to 0.\n\n positions should have float3 position in the first 12 bytes of each element\n radii can be NULL; when it's not NULL, it should have a non-negative float radius in the first 4 bytes of each element"]
+    pub fn meshopt_computeSphereBounds(
+        positions: *const f32,
+        count: usize,
+        positions_stride: usize,
+        radii: *const f32,
+        radii_stride: usize,
+    ) -> meshopt_Bounds;
+}
+extern "C" {
+    #[doc = " Experimental: Cluster partitioner\n Partitions clusters into groups of similar size, prioritizing grouping clusters that share vertices.\n\n destination must contain enough space for the resulting partiotion data (cluster_count elements)\n destination[i] will contain the partition id for cluster i, with the total number of partitions returned by the function\n cluster_indices should have the vertex indices referenced by each cluster, stored sequentially\n cluster_index_counts should have the number of indices in each cluster; sum of all cluster_index_counts must be equal to total_index_count\n target_partition_size is a target size for each partition, in clusters; the resulting partitions may be smaller or larger"]
+    pub fn meshopt_partitionClusters(
+        destination: *mut ::std::os::raw::c_uint,
+        cluster_indices: *const ::std::os::raw::c_uint,
+        total_index_count: usize,
+        cluster_index_counts: *const ::std::os::raw::c_uint,
+        cluster_count: usize,
+        vertex_count: usize,
+        target_partition_size: usize,
+    ) -> usize;
+}
+extern "C" {
     #[doc = " Spatial sorter\n Generates a remap table that can be used to reorder points for spatial locality.\n Resulting remap table maps old vertices to new vertices and can be used in meshopt_remapVertexBuffer.\n\n destination must contain enough space for the resulting remap table (vertex_count elements)\n vertex_positions should have float3 position in the first 12 bytes of each vertex"]
     pub fn meshopt_spatialSortRemap(
         destination: *mut ::std::os::raw::c_uint,
@@ -544,6 +609,18 @@ extern "C" {
         vertex_count: usize,
         vertex_positions_stride: usize,
     );
+}
+extern "C" {
+    #[doc = " Quantize a float into half-precision (as defined by IEEE-754 fp16) floating point value\n Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest\n Representable magnitude range: [6e-5; 65504]\n Maximum relative reconstruction error: 5e-4"]
+    pub fn meshopt_quantizeHalf(v: f32) -> ::std::os::raw::c_ushort;
+}
+extern "C" {
+    #[doc = " Quantize a float into a floating point value with a limited number of significant mantissa bits, preserving the IEEE-754 fp32 binary representation\n Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest\n Assumes N is in a valid mantissa precision range, which is 1..23"]
+    pub fn meshopt_quantizeFloat(v: f32, N: ::std::os::raw::c_int) -> f32;
+}
+extern "C" {
+    #[doc = " Reverse quantization of a half-precision (as defined by IEEE-754 fp16) floating point value\n Preserves Inf/NaN, flushes denormals to zero"]
+    pub fn meshopt_dequantizeHalf(h: ::std::os::raw::c_ushort) -> f32;
 }
 extern "C" {
     #[doc = " Set allocation callbacks\n These callbacks will be used instead of the default operator new/operator delete for all temporary allocations in the library.\n Note that all algorithms only allocate memory for temporary use.\n allocate/deallocate are always called in a stack-like order - last pointer to be allocated is deallocated first."]

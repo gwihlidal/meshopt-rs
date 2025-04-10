@@ -1,5 +1,10 @@
 # Changes
 
+## 0.5.0 (2025-04-??)
+
+* Upgraded meshoptimizer library to 0.23 (hash 3e9d1ff3135794f519f3237515277c8d9a3fd3f2)
+* Added `build_meshlets_flex` API function
+
 ## 0.4.1 (2024-12-22)
 
 * Truncate vertices and triangles when building meshlets
@@ -7,7 +12,7 @@
 ## 0.4.0 (2024-10-25)
 
 * Upgraded meshoptimizer library to 0.22 (hash 4affad044571506a5724c9a6f15424f43e86f731)
-* Added `simplify_with_attributes_and_locks` API functions
+* Added `simplify_with_attributes_and_locks` API function
 
 ## 0.3.0 (2024-06-26)
 

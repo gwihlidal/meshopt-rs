@@ -1,6 +1,6 @@
 [package]
 name = "meshopt"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for mesh optimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"
@@ -23,12 +23,15 @@ include = [
     "vendor/src/indexgenerator.cpp",
     "vendor/src/overdrawanalyzer.cpp",
     "vendor/src/overdrawoptimizer.cpp",
+    "vendor/src/partition.cpp",
+    "vendor/src/quantization.cpp",
     "vendor/src/simplifier.cpp",
     "vendor/src/spatialorder.cpp",
     "vendor/src/stripifier.cpp",
     "vendor/src/vcacheanalyzer.cpp",
     "vendor/src/vcacheoptimizer.cpp",
     "vendor/src/vertexcodec.cpp",
+    "vendor/src/vertexfilter.cpp",
     "vendor/src/vfetchanalyzer.cpp",
     "vendor/src/vfetchoptimizer.cpp",
     "include_wasm32/*.h",

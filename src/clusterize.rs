@@ -111,6 +111,77 @@ pub fn build_meshlets(
     }
 }
 
+/// Experimental: Meshlet builder with flexible cluster sizes.
+///
+/// Splits the mesh into a set of meshlets, similarly to build_meshlets, but allows to specify minimum and maximum number of triangles per meshlet.
+/// Clusters between min and max triangle counts are split when the cluster size would have exceeded the expected cluster size by more than split_factor.
+/// Additionally, allows to switch to axis aligned clusters by setting cone_weight to a negative value.
+///
+/// * max_vertices, min_triangles and max_triangles must not exceed implementation limits (max_vertices <= 256, max_triangles <= 512; min_triangles <= max_triangles; both min_triangles and max_triangles must be divisible by 4)
+/// * cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1 otherwise to balance between cluster size and cone culling efficiency; additionally, cone_weight can be set to a negative value to prioritize axis aligned clusters (for raytracing) instead
+/// * split_factor should be set to a non-negative value; when greater than 0, clusters that have large bounds may be split unless they are under the min_triangles threshold
+pub fn build_meshlets_flex(
+    indices: &[u32],
+    vertices: &VertexDataAdapter<'_>,
+    max_vertices: usize,
+    min_triangles: usize,
+    max_triangles: usize,
+    cone_weight: f32,
+    split_factor: f32,
+) -> Meshlets {
+    let meshlet_count =
+        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
+    let mut meshlets: Vec<ffi::meshopt_Meshlet> =
+        vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
+
+    let mut meshlet_verts: Vec<u32> = vec![0; meshlet_count * max_vertices];
+    let mut meshlet_tris: Vec<u8> = vec![0; meshlet_count * max_triangles * 3];
+
+    let count = unsafe {
+        ffi::meshopt_buildMeshletsFlex(
+            meshlets.as_mut_ptr(),
+            meshlet_verts.as_mut_ptr(),
+            meshlet_tris.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            max_vertices,
+            min_triangles,
+            max_triangles,
+            cone_weight,
+            split_factor,
+        )
+    };
+
+    let last_meshlet = meshlets[count - 1];
+    meshlet_verts
+        .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
+    meshlet_tris.truncate(
+        last_meshlet.triangle_offset as usize
+            + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
+    );
+    meshlets.truncate(count);
+
+    for meshlet in meshlets.iter_mut().take(count) {
+        unsafe {
+            ffi::meshopt_optimizeMeshlet(
+                &mut meshlet_verts[meshlet.vertex_offset as usize],
+                &mut meshlet_tris[meshlet.triangle_offset as usize],
+                meshlet.triangle_count as usize,
+                meshlet.vertex_count as usize,
+            );
+        };
+    }
+
+    Meshlets {
+        meshlets,
+        vertices: meshlet_verts,
+        triangles: meshlet_tris,
+    }
+}
+
 /// Creates bounding volumes that can be used for frustum, backface and occlusion culling.
 ///
 /// For backface culling with orthographic projection, use the following formula to reject backfacing clusters:

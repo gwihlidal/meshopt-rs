@@ -504,4 +504,56 @@ mod tests {
         );
         assert_eq!(partitions, [0, 0, 0, 0]);
     }
+
+    #[test]
+    fn test_meshlets_flex() {
+        // Two tetrahedrons far apart
+        let vb: &[f32] = &[
+            0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, //
+            10.0, 0.0, 0.0, 11.0, 0.0, 0.0, 10.0, 1.0, 0.0, 10.0, 0.0, 1.0,
+        ];
+
+        let ib: &[u32] = &[
+            0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2, //
+            4, 5, 6, 4, 6, 7, 4, 7, 5, 5, 7, 6,
+        ];
+
+        let vertices =
+            VertexDataAdapter::new(typed_to_bytes(vb), std::mem::size_of::<[f32; 3]>(), 0).unwrap();
+
+        // Up to 2 meshlets with min_triangles = 4
+        assert_eq!(
+            unsafe { ffi::meshopt_buildMeshletsBound(ib.len(), 16, 4) },
+            2
+        );
+
+        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, 0.0, 0.0);
+        assert_eq!(meshlets.len(), 1);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 8);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 8);
+
+        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, 0.0, 10.0);
+        assert_eq!(meshlets.len(), 1);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 8);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 8);
+
+        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, 0.0, 1.0);
+        assert_eq!(meshlets.len(), 2);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 4);
+        assert_eq!(meshlets.meshlets[1].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[1].vertex_count, 4);
+
+        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, -1.0, 10.0);
+        assert_eq!(meshlets.len(), 1);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 8);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 8);
+
+        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, -1.0, 1.0);
+        assert_eq!(meshlets.len(), 2);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 4);
+        assert_eq!(meshlets.meshlets[1].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[1].vertex_count, 4);
+    }
 }

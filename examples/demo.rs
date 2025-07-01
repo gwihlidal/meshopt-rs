@@ -1,7 +1,9 @@
 #![allow(clippy::identity_op)]
 
-use memoffset::offset_of;
-use meshopt::*;
+use meshopt::{
+    pack_vertices, typed_to_bytes, FromVertex, PackedVertex, PackedVertexOct, SimplifyOptions,
+    Vertex, VertexDataAdapter,
+};
 use rand::seq::SliceRandom;
 use std::{
     fmt,
@@ -185,7 +187,7 @@ impl Mesh {
                 mesh.vertices.as_ptr() as *mut ::std::os::raw::c_void,
                 merged_vertices.as_ptr() as *const ::std::os::raw::c_void,
                 total_indices,
-                mem::size_of::<Vertex>(),
+                size_of::<Vertex>(),
                 vertex_remap.as_ptr() as *const ::std::os::raw::c_uint,
             );
         }
@@ -298,8 +300,8 @@ impl Mesh {
     }
 
     fn split(&mut self) -> (VertexDataAdapter, &mut [u32]) {
-        let position_offset = offset_of!(Vertex, p);
-        let vertex_stride = std::mem::size_of::<Vertex>();
+        let position_offset = mem::offset_of!(Vertex, p);
+        let vertex_stride = size_of::<Vertex>();
         let vertex_data = typed_to_bytes(&self.vertices);
         (
             VertexDataAdapter::new(vertex_data, vertex_stride, position_offset)
@@ -309,8 +311,8 @@ impl Mesh {
     }
 
     fn vertex_adapter(&self) -> VertexDataAdapter {
-        let position_offset = offset_of!(Vertex, p);
-        let vertex_stride = std::mem::size_of::<Vertex>();
+        let position_offset = mem::offset_of!(Vertex, p);
+        let vertex_stride = size_of::<Vertex>();
         let vertex_data = typed_to_bytes(&self.vertices);
 
         VertexDataAdapter::new(vertex_data, vertex_stride, position_offset)
@@ -334,7 +336,7 @@ fn optimize_mesh(mesh: &Mesh, name: &str, opt: fn(mesh: &mut Mesh)) {
         meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), CACHE_SIZE as u32, 0, 0);
 
     let vfs =
-        meshopt::analyze_vertex_fetch(&copy.indices, copy.vertices.len(), mem::size_of::<Vertex>());
+        meshopt::analyze_vertex_fetch(&copy.indices, copy.vertices.len(), size_of::<Vertex>());
 
     let os = meshopt::analyze_overdraw(&copy.indices, &vertex_adapter);
 
@@ -727,7 +729,7 @@ fn simplify(mesh: &Mesh) {
     let vfs_0 = meshopt::analyze_vertex_fetch(
         &indices[lod_offsets[0]..(lod_offsets[0] + lod_counts[0])],
         vertices.len(),
-        mem::size_of::<Vertex>(),
+        size_of::<Vertex>(),
     );
 
     let vcs_n = meshopt::analyze_vertex_cache(
@@ -741,7 +743,7 @@ fn simplify(mesh: &Mesh) {
     let vfs_n = meshopt::analyze_vertex_fetch(
         &indices[lod_offsets[offset_n]..(lod_offsets[offset_n] + lod_counts[offset_n])],
         vertices.len(),
-        mem::size_of::<Vertex>(),
+        size_of::<Vertex>(),
     );
 
     let packed = pack_vertices::<PackedVertexOct>(&vertices);
@@ -837,7 +839,7 @@ fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     println!(
         "VtxPack{}  : {:.1} bits/vertex (post-deflate {:.1} bits/vertices)",
         name,
-        (vertices.len() * mem::size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
+        (vertices.len() * size_of::<T>() * 8) as f64 / mesh.vertices.len() as f64,
         (compressed.len() * 8) as f64 / mesh.vertices.len() as f64
     );
 }

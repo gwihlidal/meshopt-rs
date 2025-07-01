@@ -219,7 +219,6 @@ impl Read for VertexDataAdapter<'_> {
 mod tests {
     use super::*;
     use crate::{typed_to_bytes, Vertex, VertexDataAdapter};
-    use memoffset::offset_of;
 
     #[test]
     fn test_xyz_f32_at() {
@@ -238,8 +237,8 @@ mod tests {
 
         let mut adapter = VertexDataAdapter::new(
             typed_to_bytes(&vertices),
-            ::std::mem::size_of::<Vertex>(),
-            offset_of!(Vertex, p),
+            size_of::<Vertex>(),
+            std::mem::offset_of!(Vertex, p),
         )
         .unwrap();
 

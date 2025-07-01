@@ -1,6 +1,6 @@
 # Changes
 
-## 0.5.0 (2025-04-??)
+## 0.5.0 (2025-07-01)
 
 * Upgraded meshoptimizer library to 0.23 (hash 3e9d1ff3135794f519f3237515277c8d9a3fd3f2)
 * Added `build_meshlets_flex` API function
@@ -49,7 +49,8 @@
 
 ## 0.1.7 (2019-05-19)
 
-* Implemented `VertexDataAdapter` and modified a number of methods to remove a heavy allocation and slow decode. `DecodePosition` is supported through new `*_decoder` methods.
+* Implemented `VertexDataAdapter` and modified a number of methods to remove a heavy allocation and slow decode.
+  `DecodePosition` is supported through new `*_decoder` methods.
 * Updated vendoring of meshoptimizer to commit hash `7bf6e425fa158794c3da75684e8f8c7040b97cfa`.
 
 ## 0.1.6 (2019-03-29)

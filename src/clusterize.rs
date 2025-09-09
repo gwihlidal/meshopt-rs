@@ -182,6 +182,73 @@ pub fn build_meshlets_flex(
     }
 }
 
+/// Experimental: Spatial meshlet builder with flexible cluster sizes.
+///
+/// Splits the mesh into a set of meshlets, similarly to `build_meshlets`, but allows to specify minimum and maximum number of triangles per meshlet.
+/// Uses a spatial approach that optimizes for SAH (Surface Area Heuristic) quality while supporting flexible cluster sizes.
+///
+/// * `max_vertices`, `min_triangles` and `max_triangles` must not exceed implementation limits (`max_vertices` <= 256, `max_triangles` <= 512; `min_triangles` <= `max_triangles`; both `min_triangles` and `max_triangles` must be divisible by 4)
+/// * `fill_weight` allows to prioritize clusters that are closer to maximum size at some cost to SAH quality; 0.5 is a safe default
+pub fn build_meshlets_spatial(
+    indices: &[u32],
+    vertices: &VertexDataAdapter<'_>,
+    max_vertices: usize,
+    min_triangles: usize,
+    max_triangles: usize,
+    fill_weight: f32,
+) -> Meshlets {
+    let meshlet_count =
+        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
+    let mut meshlets: Vec<ffi::meshopt_Meshlet> =
+        vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
+
+    let mut meshlet_verts: Vec<u32> = vec![0; meshlet_count * max_vertices];
+    let mut meshlet_tris: Vec<u8> = vec![0; meshlet_count * max_triangles * 3];
+
+    let count = unsafe {
+        ffi::meshopt_buildMeshletsSpatial(
+            meshlets.as_mut_ptr(),
+            meshlet_verts.as_mut_ptr(),
+            meshlet_tris.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            max_vertices,
+            min_triangles,
+            max_triangles,
+            fill_weight,
+        )
+    };
+
+    let last_meshlet = meshlets[count - 1];
+    meshlet_verts
+        .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
+    meshlet_tris.truncate(
+        last_meshlet.triangle_offset as usize
+            + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
+    );
+    meshlets.truncate(count);
+
+    for meshlet in meshlets.iter_mut().take(count) {
+        unsafe {
+            ffi::meshopt_optimizeMeshlet(
+                &mut meshlet_verts[meshlet.vertex_offset as usize],
+                &mut meshlet_tris[meshlet.triangle_offset as usize],
+                meshlet.triangle_count as usize,
+                meshlet.vertex_count as usize,
+            );
+        };
+    }
+
+    Meshlets {
+        meshlets,
+        vertices: meshlet_verts,
+        triangles: meshlet_tris,
+    }
+}
+
 /// Cluster partitioner
 /// Partitions clusters into groups of similar size, prioritizing grouping clusters that share vertices.
 ///
@@ -552,6 +619,46 @@ mod tests {
         assert_eq!(meshlets.meshlets[0].vertex_count, 8);
 
         let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, -1.0, 1.0);
+        assert_eq!(meshlets.len(), 2);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 4);
+        assert_eq!(meshlets.meshlets[1].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[1].vertex_count, 4);
+    }
+
+    #[test]
+    fn test_meshlets_spatial() {
+        // Two tetrahedrons far apart (copied from vendor test)
+        let vb: &[f32] = &[
+            0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+            10.0, 0.0, 0.0, 11.0, 0.0, 0.0, 10.0, 1.0, 0.0, 10.0, 0.0, 1.0,
+        ];
+
+        let ib: &[u32] = &[
+            0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2,
+            4, 5, 6, 4, 6, 7, 4, 7, 5, 5, 7, 6,
+        ];
+
+        let vertices = VertexDataAdapter::new(typed_to_bytes(vb), 3 * std::mem::size_of::<f32>(), 0).unwrap();
+
+        // Up to 2 meshlets with min_triangles=4
+        assert_eq!(unsafe { ffi::meshopt_buildMeshletsBound(ib.len(), 16, 4) }, 2);
+
+        // With strict limits, we should get one meshlet (max_triangles=8) or two (max_triangles=4)
+        let meshlets = build_meshlets_spatial(ib, &vertices, 16, 8, 8, 0.0);
+        assert_eq!(meshlets.len(), 1);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 8);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 8);
+
+        let meshlets = build_meshlets_spatial(ib, &vertices, 16, 4, 4, 0.0);
+        assert_eq!(meshlets.len(), 2);
+        assert_eq!(meshlets.meshlets[0].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[0].vertex_count, 4);
+        assert_eq!(meshlets.meshlets[1].triangle_count, 4);
+        assert_eq!(meshlets.meshlets[1].vertex_count, 4);
+
+        // With max_vertices=4 we should get two meshlets since we can't accommodate both
+        let meshlets = build_meshlets_spatial(ib, &vertices, 4, 4, 8, 0.0);
         assert_eq!(meshlets.len(), 2);
         assert_eq!(meshlets.meshlets[0].triangle_count, 4);
         assert_eq!(meshlets.meshlets[0].vertex_count, 4);

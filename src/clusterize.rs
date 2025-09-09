@@ -211,7 +211,9 @@ pub fn partition_clusters(
             cluster_indices.len(),
             cluster_index_counts.as_ptr(),
             cluster_index_counts.len(),
+            std::ptr::null(),
             vertex_count,
+            0,
             target_partition_size,
         )
     }

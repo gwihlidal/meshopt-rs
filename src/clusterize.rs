@@ -251,6 +251,88 @@ pub fn partition_clusters(
     }
 }
 
+/// Cluster partitioner with vertex positions
+/// Partitions clusters into groups of similar size, prioritizing grouping clusters that share vertices
+/// and are spatially close based on vertex positions.
+///
+///  `destination` must contain enough space for the resulting partition data (`cluster_index_counts.len()` elements)
+///  `destination[i]` will contain the partition id for cluster i, with the total number of partitions returned by the function.
+///  `cluster_indices` should have the vertex indices referenced by each cluster, stored sequentially
+///  `cluster_index_counts` should have the number of indices in each cluster; sum of all `cluster_index_counts` must be equal to `cluster_indices.len()`
+///  `vertices` should contain vertex position data
+///  `target_partition_size` is a target size for each partition, in clusters; the resulting partitions may be smaller or larger
+///
+/// The returned value is the number of partitions created. (`destination` can be sliced to the size of the returned value)
+pub fn partition_clusters_with_positions(
+    destination: &mut [u32],
+    cluster_indices: &[u32],
+    cluster_index_counts: &[u32],
+    vertices: &VertexDataAdapter<'_>,
+    target_partition_size: usize,
+) -> usize {
+    assert_eq!(destination.len(), cluster_index_counts.len());
+    debug_assert_eq!(
+        cluster_indices.len(),
+        cluster_index_counts.iter().sum::<u32>() as usize
+    );
+    unsafe {
+        ffi::meshopt_partitionClusters(
+            destination.as_mut_ptr(),
+            cluster_indices.as_ptr(),
+            cluster_indices.len(),
+            cluster_index_counts.as_ptr(),
+            cluster_index_counts.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            target_partition_size,
+        )
+    }
+}
+
+/// Cluster partitioner with vertex positions (decoder version)
+/// Partitions clusters into groups of similar size, prioritizing grouping clusters that share vertices
+/// and are spatially close based on vertex positions.
+///
+///  `destination` must contain enough space for the resulting partition data (`cluster_index_counts.len()` elements)
+///  `destination[i]` will contain the partition id for cluster i, with the total number of partitions returned by the function.
+///  `cluster_indices` should have the vertex indices referenced by each cluster, stored sequentially
+///  `cluster_index_counts` should have the number of indices in each cluster; sum of all `cluster_index_counts` must be equal to `cluster_indices.len()`
+///  `vertices` should contain vertex data that can decode positions
+///  `target_partition_size` is a target size for each partition, in clusters; the resulting partitions may be smaller or larger
+///
+/// The returned value is the number of partitions created. (`destination` can be sliced to the size of the returned value)
+pub fn partition_clusters_with_decoder<T: DecodePosition>(
+    destination: &mut [u32],
+    cluster_indices: &[u32],
+    cluster_index_counts: &[u32],
+    vertices: &[T],
+    target_partition_size: usize,
+) -> usize {
+    assert_eq!(destination.len(), cluster_index_counts.len());
+    debug_assert_eq!(
+        cluster_indices.len(),
+        cluster_index_counts.iter().sum::<u32>() as usize
+    );
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    unsafe {
+        ffi::meshopt_partitionClusters(
+            destination.as_mut_ptr(),
+            cluster_indices.as_ptr(),
+            cluster_indices.len(),
+            cluster_index_counts.as_ptr(),
+            cluster_index_counts.len(),
+            positions.as_ptr().cast(),
+            positions.len(),
+            std::mem::size_of::<f32>() * 3,
+            target_partition_size,
+        )
+    }
+}
+
 /// Creates bounding volumes that can be used for frustum, backface and occlusion culling.
 ///
 /// For backface culling with orthographic projection, use the following formula to reject backfacing clusters:
@@ -537,6 +619,103 @@ mod tests {
             1
         );
         assert_eq!(partitions, [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_partition_with_positions() {
+        // 0   1   2
+        //     3
+        // 4 5 6 7 8
+        //     9
+        // 10 11  12
+        let cluster_indices: &[u32] = &[
+            0, 1, 3, 4, 5, 6, //
+            1, 2, 3, 6, 7, 8, //
+            4, 5, 6, 9, 10, 11, //
+            6, 7, 8, 9, 11, 12, //
+        ];
+
+        let cluster_index_counts: &[u32] = &[6, 6, 6, 6];
+        let mut partitions = vec![0u32; cluster_index_counts.len()];
+
+        // Vertex positions arranged in a 3x4 grid
+        let vertices: &[f32] = &[
+            0.0, 0.0, 0.0,  // 0
+            1.0, 0.0, 0.0,  // 1
+            2.0, 0.0, 0.0,  // 2
+            1.0, 1.0, 0.0,  // 3
+            0.0, 2.0, 0.0,  // 4
+            1.0, 2.0, 0.0,  // 5
+            2.0, 2.0, 0.0,  // 6
+            3.0, 2.0, 0.0,  // 7
+            4.0, 2.0, 0.0,  // 8
+            2.0, 3.0, 0.0,  // 9
+            0.0, 4.0, 0.0,  // 10
+            1.0, 4.0, 0.0,  // 11
+            2.0, 4.0, 0.0,  // 12
+        ];
+
+        let vertex_adapter = VertexDataAdapter::new(
+            typed_to_bytes(vertices),
+            3 * std::mem::size_of::<f32>(),
+            0,
+        ).unwrap();
+
+        // Test with positions - should produce better spatial partitioning
+        let result = partition_clusters_with_positions(
+            &mut partitions,
+            cluster_indices,
+            cluster_index_counts,
+            &vertex_adapter,
+            2,
+        );
+
+        assert_eq!(result, 2);
+        assert_eq!(partitions, [0, 1, 0, 1]);
+    }
+
+    #[test]
+    fn test_partition_with_decoder() {
+        use crate::Vertex;
+
+        // Same test as above but using decoder interface
+        let cluster_indices: &[u32] = &[
+            0, 1, 3, 4, 5, 6,
+            1, 2, 3, 6, 7, 8,
+            4, 5, 6, 9, 10, 11,
+            6, 7, 8, 9, 11, 12,
+        ];
+
+        let cluster_index_counts: &[u32] = &[6, 6, 6, 6];
+        let mut partitions = vec![0u32; cluster_index_counts.len()];
+
+        // Create vertices with position data
+        let vertices: Vec<Vertex> = vec![
+            Vertex { p: [0.0, 0.0, 0.0], ..Default::default() },  // 0
+            Vertex { p: [1.0, 0.0, 0.0], ..Default::default() },  // 1
+            Vertex { p: [2.0, 0.0, 0.0], ..Default::default() },  // 2
+            Vertex { p: [1.0, 1.0, 0.0], ..Default::default() },  // 3
+            Vertex { p: [0.0, 2.0, 0.0], ..Default::default() },  // 4
+            Vertex { p: [1.0, 2.0, 0.0], ..Default::default() },  // 5
+            Vertex { p: [2.0, 2.0, 0.0], ..Default::default() },  // 6
+            Vertex { p: [3.0, 2.0, 0.0], ..Default::default() },  // 7
+            Vertex { p: [4.0, 2.0, 0.0], ..Default::default() },  // 8
+            Vertex { p: [2.0, 3.0, 0.0], ..Default::default() },  // 9
+            Vertex { p: [0.0, 4.0, 0.0], ..Default::default() },  // 10
+            Vertex { p: [1.0, 4.0, 0.0], ..Default::default() },  // 11
+            Vertex { p: [2.0, 4.0, 0.0], ..Default::default() },  // 12
+        ];
+
+        let result = partition_clusters_with_decoder(
+            &mut partitions,
+            cluster_indices,
+            cluster_index_counts,
+            &vertices,
+            2,
+        );
+
+        assert_eq!(result, 2);
+        assert_eq!(partitions, [0, 1, 0, 1]);
     }
 
     #[test]

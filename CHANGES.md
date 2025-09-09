@@ -1,5 +1,13 @@
 # Changes
 
+## Unreleased
+
+* Upgraded meshoptimizer library to 0.25 (hash 6daea4695c48338363b08022d2fb15deaef6ac09)
+* Added `SimplifyOptions::Prune` and `SimplifyOptions::Regularize` flags for mesh simplification
+* Added `simplify_sloppy_with_locks` and `simplify_sloppy_with_locks_decoder` API functions
+* Added `build_meshlets_spatial` API function for raytracing-optimized meshlet generation
+* Added `partition_clusters_with_positions` and `partition_clusters_with_decoder` API functions for position-aware cluster partitioning
+
 ## 0.5.0 (2025-07-01)
 
 * Upgraded meshoptimizer library to 0.23 (hash 3e9d1ff3135794f519f3237515277c8d9a3fd3f2)

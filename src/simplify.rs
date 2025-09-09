@@ -359,6 +359,85 @@ pub fn simplify_sloppy_decoder<T: DecodePosition>(
     result
 }
 
+/// Reduces the number of triangles in the mesh, sacrificing mesh appearance for simplification performance,
+/// while respecting the given vertex locks.
+///
+/// The algorithm doesn't preserve mesh topology but is always able to reach target triangle count.
+///
+/// The resulting index buffer references vertices from the original vertex buffer.
+///
+/// If the original vertex data isn't required, creating a compact vertex buffer using `optimize_vertex_fetch`
+/// is recommended.
+pub fn simplify_sloppy_with_locks(
+    indices: &[u32],
+    vertices: &VertexDataAdapter<'_>,
+    vertex_lock: &[bool],
+    target_count: usize,
+    target_error: f32,
+    result_error: Option<&mut f32>,
+) -> Vec<u32> {
+    let vertex_data = vertices.reader.get_ref();
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
+    let positions = unsafe { vertex_data.add(vertices.position_offset) };
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let index_count = unsafe {
+        ffi::meshopt_simplifySloppy(
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
+            indices.len(),
+            positions.cast(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            vertex_lock.as_ptr().cast(),
+            target_count,
+            target_error,
+            result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
+        )
+    };
+    result.resize(index_count, 0u32);
+    result
+}
+
+/// Reduces the number of triangles in the mesh, sacrificing mesh appearance for simplification performance,
+/// while respecting the given vertex locks.
+///
+/// The algorithm doesn't preserve mesh topology but is always able to reach target triangle count.
+///
+/// The resulting index buffer references vertices from the original vertex buffer.
+///
+/// If the original vertex data isn't required, creating a compact vertex buffer using `optimize_vertex_fetch`
+/// is recommended.
+pub fn simplify_sloppy_with_locks_decoder<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+    vertex_lock: &[bool],
+    target_count: usize,
+    target_error: f32,
+    result_error: Option<&mut f32>,
+) -> Vec<u32> {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let index_count = unsafe {
+        ffi::meshopt_simplifySloppy(
+            result.as_mut_ptr().cast(),
+            indices.as_ptr().cast(),
+            indices.len(),
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+            vertex_lock.as_ptr().cast(),
+            target_count,
+            target_error,
+            result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
+        )
+    };
+    result.resize(index_count, 0u32);
+    result
+}
+
 /// Returns the error scaling factor used by the simplifier to convert between absolute and relative extents
 ///
 /// Absolute error must be *divided* by the scaling factor before passing it to `simplify` as `target_error`
@@ -389,5 +468,61 @@ pub fn simplify_scale_decoder<T: DecodePosition>(vertices: &[T]) -> f32 {
             positions.len(),
             mem::size_of::<f32>() * 3,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::typed_to_bytes;
+
+    #[test]
+    fn test_simplify_sloppy_with_locks() {
+        // Test mesh from vendor tests - triangle fan with spine
+        // 0
+        // 1 2
+        // 3 4 5
+        let indices = &[
+            0, 2, 1, // triangle 0
+            1, 2, 3, // triangle 1
+            3, 2, 4, // triangle 2
+            2, 5, 4, // triangle 3
+        ];
+
+        let vertices: &[f32] = &[
+            0.0, 4.0, 0.0, // vertex 0
+            0.0, 1.0, 0.0, // vertex 1
+            2.0, 2.0, 0.0, // vertex 2
+            0.0, 0.0, 0.0, // vertex 3
+            1.0, 0.0, 0.0, // vertex 4
+            4.0, 0.0, 0.0, // vertex 5
+        ];
+
+        // Lock the spine vertices (0, 2, 5)
+        let vertex_locks = &[true, false, true, false, false, true];
+
+        let vertices_adapter = VertexDataAdapter::new(
+            typed_to_bytes(vertices),
+            3 * mem::size_of::<f32>(),
+            0,
+        ).unwrap();
+
+        let mut result_error = 0.0f32;
+        let result = simplify_sloppy_with_locks(
+            indices,
+            &vertices_adapter,
+            vertex_locks,
+            3, // target 3 indices (1 triangle)
+            1.0,
+            Some(&mut result_error),
+        );
+
+        // Should preserve 6 indices (2 triangles) because of locks
+        assert_eq!(result.len(), 6);
+        assert_eq!(result_error, 0.0);
+
+        // Expected result based on vendor test
+        let expected = &[0, 2, 1, 1, 2, 5];
+        assert_eq!(result, expected);
     }
 }

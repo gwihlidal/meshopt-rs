@@ -7,6 +7,7 @@
 * Added `simplify_sloppy_with_locks` and `simplify_sloppy_with_locks_decoder` API functions
 * Added `build_meshlets_spatial` API function for raytracing-optimized meshlet generation
 * Added `partition_clusters_with_positions` and `partition_clusters_with_decoder` API functions for position-aware cluster partitioning
+* Fix internal memory safety issues with `build_meshlets_flex`
 
 ## 0.5.0 (2025-07-01)
 

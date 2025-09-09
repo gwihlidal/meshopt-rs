@@ -3,6 +3,43 @@ use crate::{DecodePosition, VertexDataAdapter};
 
 pub type Bounds = ffi::meshopt_Bounds;
 
+/// Internal helper to finalize meshlet data by truncating arrays and optimizing meshlets
+fn finalize_meshlets(
+    mut meshlets: Vec<ffi::meshopt_Meshlet>,
+    mut meshlet_verts: Vec<u32>,
+    mut meshlet_tris: Vec<u8>,
+    count: usize,
+) -> Meshlets {
+    if count > 0 {
+        let last_meshlet = meshlets[count - 1];
+        meshlet_verts
+            .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
+        meshlet_tris.truncate(
+            last_meshlet.triangle_offset as usize
+                + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
+        );
+    }
+    meshlets.truncate(count);
+
+    // Optimize each meshlet
+    for meshlet in meshlets.iter_mut().take(count) {
+        unsafe {
+            ffi::meshopt_optimizeMeshlet(
+                &mut meshlet_verts[meshlet.vertex_offset as usize],
+                &mut meshlet_tris[meshlet.triangle_offset as usize],
+                meshlet.triangle_count as usize,
+                meshlet.vertex_count as usize,
+            );
+        };
+    }
+
+    Meshlets {
+        meshlets,
+        vertices: meshlet_verts,
+        triangles: meshlet_tris,
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Meshlet<'data> {
     pub vertices: &'data [u32],
@@ -84,31 +121,7 @@ pub fn build_meshlets(
         )
     };
 
-    let last_meshlet = meshlets[count - 1];
-    meshlet_verts
-        .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
-    meshlet_tris.truncate(
-        last_meshlet.triangle_offset as usize
-            + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
-    );
-    meshlets.truncate(count);
-
-    for meshlet in meshlets.iter_mut().take(count) {
-        unsafe {
-            ffi::meshopt_optimizeMeshlet(
-                &mut meshlet_verts[meshlet.vertex_offset as usize],
-                &mut meshlet_tris[meshlet.triangle_offset as usize],
-                meshlet.triangle_count as usize,
-                meshlet.vertex_count as usize,
-            );
-        };
-    }
-
-    Meshlets {
-        meshlets,
-        vertices: meshlet_verts,
-        triangles: meshlet_tris,
-    }
+    finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
 /// Experimental: Meshlet builder with flexible cluster sizes.
@@ -155,31 +168,7 @@ pub fn build_meshlets_flex(
         )
     };
 
-    let last_meshlet = meshlets[count - 1];
-    meshlet_verts
-        .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
-    meshlet_tris.truncate(
-        last_meshlet.triangle_offset as usize
-            + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
-    );
-    meshlets.truncate(count);
-
-    for meshlet in meshlets.iter_mut().take(count) {
-        unsafe {
-            ffi::meshopt_optimizeMeshlet(
-                &mut meshlet_verts[meshlet.vertex_offset as usize],
-                &mut meshlet_tris[meshlet.triangle_offset as usize],
-                meshlet.triangle_count as usize,
-                meshlet.vertex_count as usize,
-            );
-        };
-    }
-
-    Meshlets {
-        meshlets,
-        vertices: meshlet_verts,
-        triangles: meshlet_tris,
-    }
+    finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
 /// Experimental: Spatial meshlet builder with flexible cluster sizes.
@@ -222,31 +211,7 @@ pub fn build_meshlets_spatial(
         )
     };
 
-    let last_meshlet = meshlets[count - 1];
-    meshlet_verts
-        .truncate(last_meshlet.vertex_offset as usize + last_meshlet.vertex_count as usize);
-    meshlet_tris.truncate(
-        last_meshlet.triangle_offset as usize
-            + ((last_meshlet.triangle_count as usize * 3 + 3) & !3),
-    );
-    meshlets.truncate(count);
-
-    for meshlet in meshlets.iter_mut().take(count) {
-        unsafe {
-            ffi::meshopt_optimizeMeshlet(
-                &mut meshlet_verts[meshlet.vertex_offset as usize],
-                &mut meshlet_tris[meshlet.triangle_offset as usize],
-                meshlet.triangle_count as usize,
-                meshlet.vertex_count as usize,
-            );
-        };
-    }
-
-    Meshlets {
-        meshlets,
-        vertices: meshlet_verts,
-        triangles: meshlet_tris,
-    }
+    finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
 /// Cluster partitioner

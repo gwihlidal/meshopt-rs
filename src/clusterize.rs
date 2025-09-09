@@ -143,7 +143,7 @@ pub fn build_meshlets_flex(
     split_factor: f32,
 ) -> Meshlets {
     let meshlet_count =
-        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
+        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, min_triangles) };
     let mut meshlets: Vec<ffi::meshopt_Meshlet> =
         vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
 
@@ -187,7 +187,7 @@ pub fn build_meshlets_spatial(
     fill_weight: f32,
 ) -> Meshlets {
     let meshlet_count =
-        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
+        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, min_triangles) };
     let mut meshlets: Vec<ffi::meshopt_Meshlet> =
         vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
 

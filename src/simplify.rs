@@ -16,6 +16,12 @@ bitflags! {
         const Sparse = 2;
         /// Treat error limit and resulting error as absolute instead of relative to mesh extents.
         const ErrorAbsolute = 4;
+        /// Remove disconnected parts of the mesh during simplification incrementally, regardless of
+        /// the topological restrictions inside components.
+        const Prune = 8;
+        /// Produce more regular triangle sizes and shapes during simplification, at some cost to
+        /// geometric quality.
+        const Regularize = 16;
     }
 }
 

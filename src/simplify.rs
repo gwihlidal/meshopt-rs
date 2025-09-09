@@ -501,11 +501,8 @@ mod tests {
         // Lock the spine vertices (0, 2, 5)
         let vertex_locks = &[true, false, true, false, false, true];
 
-        let vertices_adapter = VertexDataAdapter::new(
-            typed_to_bytes(vertices),
-            3 * mem::size_of::<f32>(),
-            0,
-        ).unwrap();
+        let vertices_adapter =
+            VertexDataAdapter::new(typed_to_bytes(vertices), 3 * mem::size_of::<f32>(), 0).unwrap();
 
         let mut result_error = 0.0f32;
         let result = simplify_sloppy_with_locks(

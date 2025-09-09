@@ -640,26 +640,24 @@ mod tests {
 
         // Vertex positions arranged in a 3x4 grid
         let vertices: &[f32] = &[
-            0.0, 0.0, 0.0,  // 0
-            1.0, 0.0, 0.0,  // 1
-            2.0, 0.0, 0.0,  // 2
-            1.0, 1.0, 0.0,  // 3
-            0.0, 2.0, 0.0,  // 4
-            1.0, 2.0, 0.0,  // 5
-            2.0, 2.0, 0.0,  // 6
-            3.0, 2.0, 0.0,  // 7
-            4.0, 2.0, 0.0,  // 8
-            2.0, 3.0, 0.0,  // 9
-            0.0, 4.0, 0.0,  // 10
-            1.0, 4.0, 0.0,  // 11
-            2.0, 4.0, 0.0,  // 12
+            0.0, 0.0, 0.0, // 0
+            1.0, 0.0, 0.0, // 1
+            2.0, 0.0, 0.0, // 2
+            1.0, 1.0, 0.0, // 3
+            0.0, 2.0, 0.0, // 4
+            1.0, 2.0, 0.0, // 5
+            2.0, 2.0, 0.0, // 6
+            3.0, 2.0, 0.0, // 7
+            4.0, 2.0, 0.0, // 8
+            2.0, 3.0, 0.0, // 9
+            0.0, 4.0, 0.0, // 10
+            1.0, 4.0, 0.0, // 11
+            2.0, 4.0, 0.0, // 12
         ];
 
-        let vertex_adapter = VertexDataAdapter::new(
-            typed_to_bytes(vertices),
-            3 * std::mem::size_of::<f32>(),
-            0,
-        ).unwrap();
+        let vertex_adapter =
+            VertexDataAdapter::new(typed_to_bytes(vertices), 3 * std::mem::size_of::<f32>(), 0)
+                .unwrap();
 
         // Test with positions - should produce better spatial partitioning
         let result = partition_clusters_with_positions(
@@ -680,10 +678,7 @@ mod tests {
 
         // Same test as above but using decoder interface
         let cluster_indices: &[u32] = &[
-            0, 1, 3, 4, 5, 6,
-            1, 2, 3, 6, 7, 8,
-            4, 5, 6, 9, 10, 11,
-            6, 7, 8, 9, 11, 12,
+            0, 1, 3, 4, 5, 6, 1, 2, 3, 6, 7, 8, 4, 5, 6, 9, 10, 11, 6, 7, 8, 9, 11, 12,
         ];
 
         let cluster_index_counts: &[u32] = &[6, 6, 6, 6];
@@ -691,19 +686,58 @@ mod tests {
 
         // Create vertices with position data
         let vertices: Vec<Vertex> = vec![
-            Vertex { p: [0.0, 0.0, 0.0], ..Default::default() },  // 0
-            Vertex { p: [1.0, 0.0, 0.0], ..Default::default() },  // 1
-            Vertex { p: [2.0, 0.0, 0.0], ..Default::default() },  // 2
-            Vertex { p: [1.0, 1.0, 0.0], ..Default::default() },  // 3
-            Vertex { p: [0.0, 2.0, 0.0], ..Default::default() },  // 4
-            Vertex { p: [1.0, 2.0, 0.0], ..Default::default() },  // 5
-            Vertex { p: [2.0, 2.0, 0.0], ..Default::default() },  // 6
-            Vertex { p: [3.0, 2.0, 0.0], ..Default::default() },  // 7
-            Vertex { p: [4.0, 2.0, 0.0], ..Default::default() },  // 8
-            Vertex { p: [2.0, 3.0, 0.0], ..Default::default() },  // 9
-            Vertex { p: [0.0, 4.0, 0.0], ..Default::default() },  // 10
-            Vertex { p: [1.0, 4.0, 0.0], ..Default::default() },  // 11
-            Vertex { p: [2.0, 4.0, 0.0], ..Default::default() },  // 12
+            Vertex {
+                p: [0.0, 0.0, 0.0],
+                ..Default::default()
+            }, // 0
+            Vertex {
+                p: [1.0, 0.0, 0.0],
+                ..Default::default()
+            }, // 1
+            Vertex {
+                p: [2.0, 0.0, 0.0],
+                ..Default::default()
+            }, // 2
+            Vertex {
+                p: [1.0, 1.0, 0.0],
+                ..Default::default()
+            }, // 3
+            Vertex {
+                p: [0.0, 2.0, 0.0],
+                ..Default::default()
+            }, // 4
+            Vertex {
+                p: [1.0, 2.0, 0.0],
+                ..Default::default()
+            }, // 5
+            Vertex {
+                p: [2.0, 2.0, 0.0],
+                ..Default::default()
+            }, // 6
+            Vertex {
+                p: [3.0, 2.0, 0.0],
+                ..Default::default()
+            }, // 7
+            Vertex {
+                p: [4.0, 2.0, 0.0],
+                ..Default::default()
+            }, // 8
+            Vertex {
+                p: [2.0, 3.0, 0.0],
+                ..Default::default()
+            }, // 9
+            Vertex {
+                p: [0.0, 4.0, 0.0],
+                ..Default::default()
+            }, // 10
+            Vertex {
+                p: [1.0, 4.0, 0.0],
+                ..Default::default()
+            }, // 11
+            Vertex {
+                p: [2.0, 4.0, 0.0],
+                ..Default::default()
+            }, // 12
         ];
 
         let result = partition_clusters_with_decoder(
@@ -774,19 +808,22 @@ mod tests {
     fn test_meshlets_spatial() {
         // Two tetrahedrons far apart (copied from vendor test)
         let vb: &[f32] = &[
-            0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
-            10.0, 0.0, 0.0, 11.0, 0.0, 0.0, 10.0, 1.0, 0.0, 10.0, 0.0, 1.0,
+            0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 10.0, 0.0, 0.0, 11.0, 0.0,
+            0.0, 10.0, 1.0, 0.0, 10.0, 0.0, 1.0,
         ];
 
         let ib: &[u32] = &[
-            0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2,
-            4, 5, 6, 4, 6, 7, 4, 7, 5, 5, 7, 6,
+            0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2, 4, 5, 6, 4, 6, 7, 4, 7, 5, 5, 7, 6,
         ];
 
-        let vertices = VertexDataAdapter::new(typed_to_bytes(vb), 3 * std::mem::size_of::<f32>(), 0).unwrap();
+        let vertices =
+            VertexDataAdapter::new(typed_to_bytes(vb), 3 * std::mem::size_of::<f32>(), 0).unwrap();
 
         // Up to 2 meshlets with min_triangles=4
-        assert_eq!(unsafe { ffi::meshopt_buildMeshletsBound(ib.len(), 16, 4) }, 2);
+        assert_eq!(
+            unsafe { ffi::meshopt_buildMeshletsBound(ib.len(), 16, 4) },
+            2
+        );
 
         // With strict limits, we should get one meshlet (max_triangles=8) or two (max_triangles=4)
         let meshlets = build_meshlets_spatial(ib, &vertices, 16, 8, 8, 0.0);

@@ -9,20 +9,19 @@ fn main() {
     let source_files = [
         "vendor/src/allocator.cpp",
         "vendor/src/clusterizer.cpp",
+        "vendor/src/indexanalyzer.cpp",
         "vendor/src/indexcodec.cpp",
         "vendor/src/indexgenerator.cpp",
-        "vendor/src/overdrawanalyzer.cpp",
         "vendor/src/overdrawoptimizer.cpp",
         "vendor/src/partition.cpp",
         "vendor/src/quantization.cpp",
+        "vendor/src/rasterizer.cpp",
         "vendor/src/simplifier.cpp",
         "vendor/src/spatialorder.cpp",
         "vendor/src/stripifier.cpp",
-        "vendor/src/vcacheanalyzer.cpp",
         "vendor/src/vcacheoptimizer.cpp",
         "vendor/src/vertexcodec.cpp",
         "vendor/src/vertexfilter.cpp",
-        "vendor/src/vfetchanalyzer.cpp",
         "vendor/src/vfetchoptimizer.cpp",
     ];
 

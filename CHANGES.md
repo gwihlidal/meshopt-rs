@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 0.6.0
 
 * Upgraded meshoptimizer library to 0.25 (hash 6daea4695c48338363b08022d2fb15deaef6ac09)
 * Added `SimplifyOptions::Prune` and `SimplifyOptions::Regularize` flags for mesh simplification

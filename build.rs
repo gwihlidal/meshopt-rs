@@ -40,6 +40,11 @@ fn main() {
         build.flag("-std=c++11").cpp_link_stdlib("stdc++").cpp(true);
     }
 
+    let disable_debug = env::var("DEBUG").unwrap() != "true";
+    if disable_debug {
+        build.define("NDEBUG", None);
+    }
+
     if target.starts_with("wasm32") {
         // In webassembly there's no stdlib, so we use
         // our own stripped down headers to provide the few

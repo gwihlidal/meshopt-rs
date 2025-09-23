@@ -198,8 +198,13 @@ at your option.
 ## Credits and Special Thanks
 
 - [Arseny Kapoulkine](https://github.com/zeux) (Author of C/C++ library)
+- [Graham Wihlidal](https://github.com/gwihlidal) (Ex-maintainer)
+- [Pâris Douady](https://github.com/Uriopass) (Co-Maintainer)
+- [Lorenz BeastLe9enD](https://github.com/BeastLe9enD) (Co-Maintainer)
+- [Sylvester Hesp](https://github.com/oisyn) (Co-Maintainer)
 - [Daniel Collin](https://github.com/emoon) (Code review)
 - [Jake Shadle](https://github.com/Jake-Shadle) (Code review)
+- [JMS55](https://github.com/JMS55) (Contributions)
 - [Thomas Herzog](https://github.com/karroffel) (Contributions)
 - [Alexandru Ene](https://github.com/AlexEne) (Contributions)
 - [Ralf Jung](https://github.com/RalfJung) (Contributions)

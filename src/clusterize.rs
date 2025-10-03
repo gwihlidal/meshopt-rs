@@ -402,8 +402,11 @@ pub fn compute_sphere_bounds(
 ) -> Sphere {
     if let Some(ref r) = radius {
         assert_eq!(positions.position_count, r.radius_count);
+        assert!(r.data.len() >= r.radius_count * r.radius_stride);
+        assert!(r.radius_offset + mem::size_of::<f32>() <= r.radius_stride);
     }
     assert!(positions.data.len() >= positions.position_count * positions.position_stride);
+    assert!(positions.position_offset + mem::size_of::<f32>() * 3 <= positions.position_stride);
     unsafe {
         let (radius_ptr, radius_stride) = match radius {
             Some(r) => (r.data.as_ptr().add(r.radius_offset).cast(), r.radius_stride),

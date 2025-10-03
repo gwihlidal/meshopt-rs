@@ -131,14 +131,11 @@ pub fn remap_vertex_buffer<T: Clone + Default>(
 /// Similarly to `generate_shadow_indices`, this can be helpful to pre-process meshes for position-only rendering.
 /// This can also be used to implement algorithms that require positional-only connectivity, such as hierarchical simplification.
 pub fn generate_position_remap(vertices: &VertexDataAdapter<'_>) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut remap: Vec<u32> = vec![0; vertices.vertex_count];
     unsafe {
         ffi::meshopt_generatePositionRemap(
             remap.as_mut_ptr(),
-            positions.cast::<f32>(),
+            vertices.pos_ptr(),
             vertices.vertex_count,
             vertices.vertex_stride,
         );

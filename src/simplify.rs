@@ -42,16 +42,13 @@ pub fn simplify(
     options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplify(
             result.as_mut_ptr().cast(),
             indices.as_ptr().cast(),
             indices.len(),
-            positions.cast::<f32>(),
+            vertices.pos_ptr(),
             vertices.vertex_count,
             vertices.vertex_stride,
             target_count,
@@ -118,16 +115,13 @@ pub fn simplify_with_locks(
     options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyWithAttributes(
             result.as_mut_ptr().cast(),
             indices.as_ptr().cast(),
             indices.len(),
-            positions.cast::<f32>(),
+            vertices.pos_ptr(),
             vertices.vertex_count,
             vertices.vertex_stride,
             std::ptr::null(),
@@ -210,16 +204,13 @@ pub fn simplify_with_attributes_and_locks(
     options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyWithAttributes(
             result.as_mut_ptr().cast(),
             indices.as_ptr().cast(),
             indices.len(),
-            positions.cast::<f32>(),
+            vertices.pos_ptr(),
             vertices.vertex_count,
             vertices.vertex_stride,
             vertex_attributes.as_ptr(),
@@ -301,16 +292,13 @@ pub fn simplify_sloppy(
     target_error: f32,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
             result.as_mut_ptr().cast(),
             indices.as_ptr().cast(),
             indices.len(),
-            positions.cast(),
+            vertices.pos_ptr(),
             vertices.vertex_count,
             vertices.vertex_stride,
             std::ptr::null(),
@@ -378,9 +366,7 @@ pub fn simplify_sloppy_with_locks(
     target_error: f32,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
+    let positions = vertices.pos_ptr();
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(

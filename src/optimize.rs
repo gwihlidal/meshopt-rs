@@ -161,15 +161,12 @@ pub fn optimize_overdraw_in_place(
     vertices: &VertexDataAdapter<'_>,
     threshold: f32,
 ) {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     unsafe {
         ffi::meshopt_optimizeOverdraw(
             indices.as_mut_ptr(),
             indices.as_ptr(),
             indices.len(),
-            positions.cast(),
+            vertices.pos_ptr(),
             vertices.vertex_count,
             vertices.vertex_stride,
             threshold,

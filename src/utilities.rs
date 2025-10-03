@@ -1,5 +1,6 @@
 use crate::{Error, Result};
 use std::io::{Cursor, Read};
+use std::mem;
 
 #[inline(always)]
 pub fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
@@ -204,6 +205,8 @@ impl<'a> VertexDataAdapter<'a> {
     pub fn pos_ptr(&self) -> *const f32 {
         let vertex_data = self.reader.get_ref();
         let vertex_data = vertex_data.as_ptr().cast::<u8>();
+        // safety: position_offset must point to 3xf32 bytes within each vertex
+        assert!(self.position_offset + mem::size_of::<f32>() * 3 <= self.vertex_stride);
         let positions = unsafe { vertex_data.add(self.position_offset) };
         positions.cast()
     }

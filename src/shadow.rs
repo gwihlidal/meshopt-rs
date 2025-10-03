@@ -9,16 +9,13 @@ use crate::{ffi, DecodePosition, VertexDataAdapter, VertexStream};
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
 /// the original index buffer for regular rendering.
 pub fn generate_shadow_indices(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Vec<u32> {
-    let vertex_data = vertices.reader.get_ref();
-    let vertex_data = vertex_data.as_ptr().cast::<u8>();
-    let positions = unsafe { vertex_data.add(vertices.position_offset) };
     let mut shadow_indices: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_generateShadowIndexBuffer(
             shadow_indices.as_mut_ptr(),
             indices.as_ptr(),
             indices.len(),
-            positions.cast(),
+            vertices.pos_ptr().cast(),
             vertices.vertex_count,
             std::mem::size_of::<f32>() * 3,
             vertices.vertex_stride,
@@ -39,18 +36,17 @@ pub fn generate_shadow_indices_decoder<T: DecodePosition>(
     indices: &[u32],
     vertices: &[T],
 ) -> Vec<u32> {
-    let vertices = vertices
+    let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
-    let positions = vertices.as_ptr().cast();
     let mut shadow_indices: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_generateShadowIndexBuffer(
             shadow_indices.as_mut_ptr(),
             indices.as_ptr(),
             indices.len(),
-            positions,
+            positions.as_ptr().cast(),
             vertices.len() * 3,
             std::mem::size_of::<f32>() * 3,
             std::mem::size_of::<f32>() * 3,

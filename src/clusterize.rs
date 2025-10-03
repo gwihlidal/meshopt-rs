@@ -1,5 +1,6 @@
 use crate::ffi;
 use crate::{DecodePosition, VertexDataAdapter};
+use std::mem;
 
 pub type Bounds = ffi::meshopt_Bounds;
 
@@ -144,8 +145,7 @@ pub fn build_meshlets_flex(
 ) -> Meshlets {
     let meshlet_count =
         unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, min_triangles) };
-    let mut meshlets: Vec<ffi::meshopt_Meshlet> =
-        vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
+    let mut meshlets: Vec<ffi::meshopt_Meshlet> = vec![unsafe { mem::zeroed() }; meshlet_count];
 
     let mut meshlet_verts: Vec<u32> = vec![0; meshlet_count * max_vertices];
     let mut meshlet_tris: Vec<u8> = vec![0; meshlet_count * max_triangles * 3];
@@ -188,8 +188,7 @@ pub fn build_meshlets_spatial(
 ) -> Meshlets {
     let meshlet_count =
         unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, min_triangles) };
-    let mut meshlets: Vec<ffi::meshopt_Meshlet> =
-        vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
+    let mut meshlets: Vec<ffi::meshopt_Meshlet> = vec![unsafe { mem::zeroed() }; meshlet_count];
 
     let mut meshlet_verts: Vec<u32> = vec![0; meshlet_count * max_vertices];
     let mut meshlet_tris: Vec<u8> = vec![0; meshlet_count * max_triangles * 3];
@@ -327,7 +326,7 @@ pub fn partition_clusters_with_decoder<T: DecodePosition>(
             cluster_index_counts.len(),
             positions.as_ptr().cast(),
             positions.len(),
-            std::mem::size_of::<f32>() * 3,
+            mem::size_of::<f32>() * 3,
             target_partition_size,
         )
     }
@@ -461,7 +460,7 @@ pub fn compute_cluster_bounds_decoder<T: DecodePosition>(
             indices.len(),
             vertices.as_ptr().cast(),
             vertices.len() * 3,
-            ::std::mem::size_of::<f32>() * 3,
+            mem::size_of::<f32>() * 3,
         )
     }
 }
@@ -494,7 +493,7 @@ pub fn compute_meshlet_bounds_decoder<T: DecodePosition>(
             meshlet.triangles.len() / 3,
             vertices.as_ptr().cast(),
             vertices.len() * 3,
-            std::mem::size_of::<f32>() * 3,
+            mem::size_of::<f32>() * 3,
         )
     }
 }
@@ -516,7 +515,7 @@ mod tests {
             PositionDataAdapter {
                 data: typed_to_bytes(vbr),
                 position_count: 4,
-                position_stride: 4 * ::std::mem::size_of::<f32>(),
+                position_stride: 4 * mem::size_of::<f32>(),
                 position_offset: 0,
             },
             None,
@@ -530,13 +529,13 @@ mod tests {
             PositionDataAdapter {
                 data: typed_to_bytes(vbr),
                 position_count: 4,
-                position_stride: 4 * ::std::mem::size_of::<f32>(),
+                position_stride: 4 * mem::size_of::<f32>(),
                 position_offset: 0,
             },
             Some(RadiusDataAdapter {
                 data: typed_to_bytes(eps),
                 radius_count: 4,
-                radius_stride: ::std::mem::size_of::<f32>(),
+                radius_stride: mem::size_of::<f32>(),
                 radius_offset: 0,
             }),
         );
@@ -550,14 +549,14 @@ mod tests {
             PositionDataAdapter {
                 data: typed_to_bytes(vbr),
                 position_count: 4,
-                position_stride: 4 * ::std::mem::size_of::<f32>(),
+                position_stride: 4 * mem::size_of::<f32>(),
                 position_offset: 0,
             },
             Some(RadiusDataAdapter {
                 data: typed_to_bytes(vbr),
                 radius_count: 4,
-                radius_stride: 4 * ::std::mem::size_of::<f32>(),
-                radius_offset: 3 * ::std::mem::size_of::<f32>(),
+                radius_stride: 4 * mem::size_of::<f32>(),
+                radius_offset: 3 * mem::size_of::<f32>(),
             }),
         );
 
@@ -656,8 +655,7 @@ mod tests {
         ];
 
         let vertex_adapter =
-            VertexDataAdapter::new(typed_to_bytes(vertices), 3 * std::mem::size_of::<f32>(), 0)
-                .unwrap();
+            VertexDataAdapter::new(typed_to_bytes(vertices), 3 * mem::size_of::<f32>(), 0).unwrap();
 
         // Test with positions - should produce better spatial partitioning
         let result = partition_clusters_with_positions(
@@ -766,7 +764,7 @@ mod tests {
         ];
 
         let vertices =
-            VertexDataAdapter::new(typed_to_bytes(vb), std::mem::size_of::<[f32; 3]>(), 0).unwrap();
+            VertexDataAdapter::new(typed_to_bytes(vb), mem::size_of::<[f32; 3]>(), 0).unwrap();
 
         // Up to 2 meshlets with min_triangles = 4
         assert_eq!(
@@ -817,7 +815,7 @@ mod tests {
         ];
 
         let vertices =
-            VertexDataAdapter::new(typed_to_bytes(vb), 3 * std::mem::size_of::<f32>(), 0).unwrap();
+            VertexDataAdapter::new(typed_to_bytes(vb), 3 * mem::size_of::<f32>(), 0).unwrap();
 
         // Up to 2 meshlets with min_triangles=4
         assert_eq!(

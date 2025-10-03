@@ -1,4 +1,4 @@
-use crate::{ffi, VertexStream};
+use crate::{ffi, DecodePosition, VertexDataAdapter, VertexStream};
 use std::mem;
 
 /// Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices.
@@ -124,4 +124,70 @@ pub fn remap_vertex_buffer<T: Clone + Default>(
         );
     }
     result
+}
+
+/// Generates a remap table that maps all vertices with the same position to the same (existing) index.
+///
+/// Similarly to `generate_shadow_indices`, this can be helpful to pre-process meshes for position-only rendering.
+/// This can also be used to implement algorithms that require positional-only connectivity, such as hierarchical simplification.
+pub fn generate_position_remap(vertices: &VertexDataAdapter<'_>) -> Vec<u32> {
+    let vertex_data = vertices.reader.get_ref();
+    let vertex_data = vertex_data.as_ptr().cast::<u8>();
+    let positions = unsafe { vertex_data.add(vertices.position_offset) };
+    let mut remap: Vec<u32> = vec![0; vertices.vertex_count];
+    unsafe {
+        ffi::meshopt_generatePositionRemap(
+            remap.as_mut_ptr(),
+            positions.cast::<f32>(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        );
+    }
+    remap
+}
+
+/// Generates a remap table that maps all vertices with the same position to the same (existing) index.
+///
+/// Similarly to `generate_shadow_indices`, this can be helpful to pre-process meshes for position-only rendering.
+/// This can also be used to implement algorithms that require positional-only connectivity, such as hierarchical simplification.
+pub fn generate_position_remap_decoder<T: DecodePosition>(vertices: &[T]) -> Vec<u32> {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    let mut remap: Vec<u32> = vec![0; positions.len()];
+    unsafe {
+        ffi::meshopt_generatePositionRemap(
+            remap.as_mut_ptr(),
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+        );
+    }
+    remap
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::typed_to_bytes;
+
+    #[test]
+    fn test_generate_position_remap() {
+        let vertices: &[f32] = &[
+            0.0, 0.0, 0.0, // vertex 0
+            1.0, 0.0, 0.0, // vertex 1
+            0.0, 0.0, 0.0, // vertex 2 (duplicate of 0)
+            1.0, 0.0, -0.0, // vertex 3 (duplicate of 1, -0 == 0)
+            2.0, 0.0, 0.0, // vertex 4
+        ];
+
+        let vertices_adapter =
+            VertexDataAdapter::new(typed_to_bytes(vertices), 3 * mem::size_of::<f32>(), 0).unwrap();
+
+        let remap = generate_position_remap(&vertices_adapter);
+
+        let expected = vec![0, 1, 0, 1, 4];
+        assert_eq!(remap, expected);
+    }
 }

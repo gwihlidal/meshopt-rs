@@ -1,5 +1,10 @@
 # Changes
 
+## 0.6.2 (2025-10-09)
+
+* Expose generate_position_remap(_decoder)
+* Fix memory safety issue with VertexDataAdapter
+
 ## 0.6.1 (2025-09-23)
 
 * Added `SimplifyOptions::Permissive` flag for mesh simplification

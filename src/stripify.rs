@@ -9,7 +9,11 @@ use crate::{Error, Result, ffi};
 /// The `restart_index` should be 0xffff or 0xffffffff depending on index size,
 /// or 0 to use degenerate triangles.
 pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Result<Vec<u32>> {
-    let mut result: Vec<u32> = vec![0; indices.len() / 3 * 4];
+    // Worst case storage is 5 indices per triangle assuming every triangle is unconnected to the previous triangle
+    // This would cause the first triangle to use 3 indices, and then every following triangle to use 5 indices
+    // (3 indices for the triangle and 2 indices for the degenerate indices used to separate the previous triangles).
+    // This asymptotically approaches 5 as the number of triangles becomes large
+    let mut result: Vec<u32> = vec![0; indices.len() / 3 * 5];
     let index_count = unsafe {
         ffi::meshopt_stripify(
             result.as_mut_ptr().cast(),

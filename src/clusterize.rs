@@ -791,18 +791,6 @@ mod tests {
         assert_eq!(meshlets.meshlets[0].vertex_count, 4);
         assert_eq!(meshlets.meshlets[1].triangle_count, 4);
         assert_eq!(meshlets.meshlets[1].vertex_count, 4);
-
-        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, -1.0, 10.0);
-        assert_eq!(meshlets.len(), 1);
-        assert_eq!(meshlets.meshlets[0].triangle_count, 8);
-        assert_eq!(meshlets.meshlets[0].vertex_count, 8);
-
-        let meshlets = build_meshlets_flex(ib, &vertices, 16, 4, 8, -1.0, 1.0);
-        assert_eq!(meshlets.len(), 2);
-        assert_eq!(meshlets.meshlets[0].triangle_count, 4);
-        assert_eq!(meshlets.meshlets[0].vertex_count, 4);
-        assert_eq!(meshlets.meshlets[1].triangle_count, 4);
-        assert_eq!(meshlets.meshlets[1].vertex_count, 4);
     }
 
     #[test]

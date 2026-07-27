@@ -84,6 +84,7 @@ pub mod clusterize;
 pub mod encoding;
 pub mod error;
 pub mod ffi;
+pub mod opacity;
 pub mod optimize;
 pub mod packing;
 pub mod remap;
@@ -93,8 +94,8 @@ pub mod stripify;
 pub mod utilities;
 
 pub use crate::{
-    analyze::*, clusterize::*, encoding::*, error::*, optimize::*, packing::*, remap::*, shadow::*,
-    simplify::*, stripify::*, utilities::*,
+    analyze::*, clusterize::*, encoding::*, error::*, opacity::*, optimize::*, packing::*,
+    remap::*, shadow::*, simplify::*, stripify::*, utilities::*,
 };
 use std::marker::PhantomData;
 

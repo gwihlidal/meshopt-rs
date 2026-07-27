@@ -1,8 +1,8 @@
 #![allow(clippy::identity_op)]
 
 use meshopt::{
-    pack_vertices, typed_to_bytes, FromVertex, PackedVertex, PackedVertexOct, SimplifyOptions,
-    Vertex, VertexDataAdapter,
+    FromVertex, PackedVertex, PackedVertexOct, SimplifyOptions, Vertex, VertexDataAdapter,
+    pack_vertices, typed_to_bytes,
 };
 use rand::seq::SliceRandom;
 use std::{
@@ -98,7 +98,7 @@ impl fmt::Debug for Mesh {
 
 impl Mesh {
     fn is_valid(&self) -> bool {
-        if self.indices.len() % 3 != 0 {
+        if !self.indices.len().is_multiple_of(3) {
             return false;
         } else {
             for i in 0..self.indices.len() {
@@ -299,7 +299,7 @@ impl Mesh {
         result
     }
 
-    fn split(&mut self) -> (VertexDataAdapter, &mut [u32]) {
+    fn split(&mut self) -> (VertexDataAdapter<'_>, &mut [u32]) {
         let position_offset = mem::offset_of!(Vertex, p);
         let vertex_stride = size_of::<Vertex>();
         let vertex_data = typed_to_bytes(&self.vertices);
@@ -310,7 +310,7 @@ impl Mesh {
         )
     }
 
-    fn vertex_adapter(&self) -> VertexDataAdapter {
+    fn vertex_adapter(&self) -> VertexDataAdapter<'_> {
         let position_offset = mem::offset_of!(Vertex, p);
         let vertex_stride = size_of::<Vertex>();
         let vertex_data = typed_to_bytes(&self.vertices);
@@ -447,7 +447,8 @@ fn stripify(mesh: &Mesh, use_restart: bool) {
     let vcs_amd = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 14, 64, 128);
     let vcs_intel = meshopt::analyze_vertex_cache(&copy.indices, copy.vertices.len(), 128, 0, 0);
 
-    println!("Stripify{}: ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%) in {:.2} msec",
+    println!(
+        "Stripify{}: ACMR {:.6} ATVR {:.6} (NV {:.6} AMD {:.6} Intel {:.6}); {} strip indices ({:.1}%) in {:.2} msec",
         if use_restart { "R" } else { " " },
         vcs.acmr,
         vcs.atvr,
@@ -488,12 +489,13 @@ fn shadow(mesh: &Mesh) {
         shadow_flags[shadow_index as usize] = 1;
     }
 
-    println!("ShadowIB : ACMR {:.6} ({:.2}x improvement); {} shadow vertices ({:.2}x improvement) in {:.2} msec",
-	       vcss.acmr,
-           vcs.vertices_transformed as f64 / vcss.vertices_transformed as f64,
-           shadow_vertices,
-           mesh.vertices.len() as f64 / shadow_vertices as f64,
-           elapsed_to_ms(process_elapsed)
+    println!(
+        "ShadowIB : ACMR {:.6} ({:.2}x improvement); {} shadow vertices ({:.2}x improvement) in {:.2} msec",
+        vcss.acmr,
+        vcs.vertices_transformed as f64 / vcss.vertices_transformed as f64,
+        shadow_vertices,
+        mesh.vertices.len() as f64 / shadow_vertices as f64,
+        elapsed_to_ms(process_elapsed)
     );
 }
 
@@ -530,12 +532,14 @@ fn meshlets(mesh: &Mesh) {
     avg_vertices /= meshlets.len() as f64;
     avg_triangles /= meshlets.len() as f64;
 
-    println!("Meshlets : {} meshlets (avg vertices {:.1}, avg triangles {:.1}, not full {}) in {:.2} msec",
+    println!(
+        "Meshlets : {} meshlets (avg vertices {:.1}, avg triangles {:.1}, not full {}) in {:.2} msec",
         meshlets.len(),
         avg_vertices,
         avg_triangles,
         not_full,
-        elapsed_to_ms(process_elapsed));
+        elapsed_to_ms(process_elapsed)
+    );
 
     let camera: [f32; 3] = [100.0, 100.0, 100.0];
 
@@ -612,23 +616,27 @@ fn meshlets(mesh: &Mesh) {
     }
     let test_elapsed = test_start.elapsed();
 
-    println!("ConeCull : rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
-           rejected,
-           rejected as f64 / (meshlets.len() as f64) * 100.0,
-           rejected_alt,
-           rejected_alt as f64 / (meshlets.len() as f64) * 100.0,
-           accepted,
-           accepted as f64 / (meshlets.len() as f64) * 100.0,
-           elapsed_to_ms(test_elapsed));
+    println!(
+        "ConeCull : rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
+        rejected,
+        rejected as f64 / (meshlets.len() as f64) * 100.0,
+        rejected_alt,
+        rejected_alt as f64 / (meshlets.len() as f64) * 100.0,
+        accepted,
+        accepted as f64 / (meshlets.len() as f64) * 100.0,
+        elapsed_to_ms(test_elapsed)
+    );
 
-    println!("ConeCull8: rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
-           rejected_s8,
-           rejected_s8 as f64 / (meshlets.len() as f64) * 100.0,
-           rejected_alt_s8,
-           rejected_alt_s8 as f64 / (meshlets.len() as f64) * 100.0,
-           accepted_s8,
-           accepted_s8 as f64 / (meshlets.len() as f64) * 100.0,
-           elapsed_to_ms(test_elapsed));
+    println!(
+        "ConeCull8: rejected apex {} ({:.1}%) / center {} ({:.1}%), trivially accepted {} ({:.1}%) in {:.2} msec",
+        rejected_s8,
+        rejected_s8 as f64 / (meshlets.len() as f64) * 100.0,
+        rejected_alt_s8,
+        rejected_alt_s8 as f64 / (meshlets.len() as f64) * 100.0,
+        accepted_s8,
+        accepted_s8 as f64 / (meshlets.len() as f64) * 100.0,
+        elapsed_to_ms(test_elapsed)
+    );
 }
 
 fn simplify(mesh: &Mesh) {
@@ -750,7 +758,8 @@ fn simplify(mesh: &Mesh) {
     let encoded_vertices = meshopt::encode_vertex_buffer(&packed).unwrap();
     let encoded_indices = meshopt::encode_index_buffer(&indices, vertices.len()).unwrap();
 
-    println!("{:9}  ACMR {:.6}...{:.6} Overfetch {:.6}..{:.6} Codec VB {:.1} bits/vertex IB {:.1} bits/triangle",
+    println!(
+        "{:9}  ACMR {:.6}...{:.6} Overfetch {:.6}..{:.6} Codec VB {:.1} bits/vertex IB {:.1} bits/triangle",
         "",
         vcs_0.acmr,
         vcs_n.acmr,
@@ -802,7 +811,8 @@ fn encode_index(mesh: &Mesh) {
         (compressed.len() * 8) as f64 / (mesh.indices.len() / 3) as f64,
         elapsed_to_ms(encode_elapsed),
         elapsed_to_ms(decode_elapsed),
-        ((decoded.len() * 4) as f64 / (1 << 30) as f64) / (elapsed_to_ms(decode_elapsed) as f64 / 1000.0),
+        ((decoded.len() * 4) as f64 / (1 << 30) as f64)
+            / (elapsed_to_ms(decode_elapsed) as f64 / 1000.0),
     );
 }
 
@@ -828,7 +838,8 @@ fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) 
         (compressed.len() * 8) as f64 / (mesh.vertices.len()) as f64,
         elapsed_to_ms(encode_elapsed),
         elapsed_to_ms(decode_elapsed),
-        ((decoded.len() * 4) as f64 / (1 << 30) as f64) / (elapsed_to_ms(decode_elapsed) as f64 / 1000.0),
+        ((decoded.len() * 4) as f64 / (1 << 30) as f64)
+            / (elapsed_to_ms(decode_elapsed) as f64 / 1000.0),
     );
 }
 

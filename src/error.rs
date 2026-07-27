@@ -22,7 +22,9 @@ pub enum Error {
     Path(std::path::PathBuf),
 
     /// Generally, these errors correspond to bugs in this library.
-    #[error("BUG: Please report this bug with a backtrace to https://github.com/gwihlidal/meshopt-rs\n{0}")]
+    #[error(
+        "BUG: Please report this bug with a backtrace to https://github.com/gwihlidal/meshopt-rs\n{0}"
+    )]
     Bug(String),
 
     /// An error occurred while reading/writing a configuration

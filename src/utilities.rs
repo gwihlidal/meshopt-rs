@@ -140,11 +140,7 @@ pub fn dequantize_half(h: u16) -> f32 {
 
 #[inline(always)]
 pub fn rcp_safe(v: f32) -> f32 {
-    if v.abs() as u32 == 0 {
-        0f32
-    } else {
-        1f32 / v
-    }
+    if v.abs() as u32 == 0 { 0f32 } else { 1f32 / v }
 }
 
 pub struct VertexDataAdapter<'a> {
@@ -161,7 +157,7 @@ impl<'a> VertexDataAdapter<'a> {
         position_offset: usize,
     ) -> Result<VertexDataAdapter<'a>> {
         let vertex_count = data.len() / vertex_stride;
-        if data.len() % vertex_stride != 0 {
+        if !data.len().is_multiple_of(vertex_stride) {
             Err(Error::memory_dynamic(format!(
                 "vertex data length ({}) must be evenly divisible by vertex_stride ({})",
                 data.len(),
@@ -221,7 +217,7 @@ impl Read for VertexDataAdapter<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{typed_to_bytes, Vertex, VertexDataAdapter};
+    use crate::{Vertex, VertexDataAdapter, typed_to_bytes};
 
     #[test]
     fn test_xyz_f32_at() {

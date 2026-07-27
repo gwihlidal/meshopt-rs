@@ -1,24 +1,24 @@
 use meshopt::{
-    any_as_u8_slice, quantize_snorm, quantize_unorm, rcp_safe, EncodeHeader, EncodeObject,
-    PackedVertex, Vertex,
+    EncodeHeader, EncodeObject, PackedVertex, Vertex, any_as_u8_slice, quantize_snorm,
+    quantize_unorm, rcp_safe,
 };
 
+use clap::Parser;
 use std::{fs::File, io::Write, path::PathBuf};
-use structopt::StructOpt;
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "meshencoder")]
+#[derive(Parser, Debug)]
+#[command(name = "meshencoder")]
 struct Options {
     /// Input file
-    #[structopt(short = "i", long = "input", parse(from_os_str))]
+    #[arg(short = 'i', long = "input")]
     input: PathBuf,
 
     /// Output file
-    #[structopt(short = "o", long = "output", parse(from_os_str))]
+    #[arg(short = 'o', long = "output")]
     output: PathBuf,
 
     /// No optimization (just encoding)
-    #[structopt(short = "u", long = "unoptimized")]
+    #[arg(short = 'u', long = "unoptimized")]
     unoptimized: bool,
 }
 
@@ -31,12 +31,12 @@ struct Object {
 
 #[allow(clippy::identity_op)]
 fn main() {
-    let options = Options::from_args();
+    let options = Options::parse();
 
     if options.unoptimized {
-        println!("Encoding [unoptimized] {:?}", &options.input);
+        println!("Encoding [unoptimized] {:?}", options.input);
     } else {
-        println!("Encoding {:?}", &options.input);
+        println!("Encoding {:?}", options.input);
     }
 
     let obj_file = tobj::load_obj(
@@ -210,5 +210,5 @@ fn main() {
     output.write_all(&encoded_vertices).unwrap();
     output.write_all(&encoded_indices).unwrap();
 
-    println!("   Serialized encoded mesh to {:?}", &options.output);
+    println!("   Serialized encoded mesh to {:?}", options.output);
 }

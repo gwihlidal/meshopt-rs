@@ -1,4 +1,4 @@
-use crate::{ffi, DecodePosition, VertexDataAdapter};
+use crate::{DecodePosition, VertexDataAdapter, ffi};
 use std::mem;
 
 pub type VertexCacheStatistics = ffi::meshopt_VertexCacheStatistics;

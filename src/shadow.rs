@@ -1,4 +1,4 @@
-use crate::{ffi, DecodePosition, VertexDataAdapter, VertexStream};
+use crate::{DecodePosition, VertexDataAdapter, VertexStream, ffi};
 
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
 /// attributes is necessary.

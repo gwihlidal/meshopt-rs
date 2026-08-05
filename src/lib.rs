@@ -12,7 +12,7 @@
     clippy::disallowed_methods,
     clippy::disallowed_types,
     clippy::doc_markdown,
-    clippy::empty_enum,
+    clippy::empty_enums,
     clippy::enum_glob_use,
     clippy::exit,
     clippy::expl_impl_clone_on_copy,
@@ -40,7 +40,6 @@
     clippy::map_err_ignore,
     clippy::map_flatten,
     clippy::map_unwrap_or,
-    clippy::match_on_vec_items,
     clippy::match_same_arms,
     clippy::match_wild_err_arm,
     clippy::match_wildcard_for_single_variants,
@@ -63,7 +62,6 @@
     clippy::string_add_assign,
     clippy::string_add,
     clippy::string_lit_as_bytes,
-    clippy::string_to_string,
     clippy::todo,
     clippy::trait_duplication_in_bounds,
     clippy::unimplemented,
@@ -86,6 +84,7 @@ pub mod clusterize;
 pub mod encoding;
 pub mod error;
 pub mod ffi;
+pub mod opacity;
 pub mod optimize;
 pub mod packing;
 pub mod remap;
@@ -95,8 +94,8 @@ pub mod stripify;
 pub mod utilities;
 
 pub use crate::{
-    analyze::*, clusterize::*, encoding::*, error::*, optimize::*, packing::*, remap::*, shadow::*,
-    simplify::*, stripify::*, utilities::*,
+    analyze::*, clusterize::*, encoding::*, error::*, opacity::*, optimize::*, packing::*,
+    remap::*, shadow::*, simplify::*, stripify::*, utilities::*,
 };
 use std::marker::PhantomData;
 

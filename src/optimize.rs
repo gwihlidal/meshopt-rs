@@ -1,4 +1,4 @@
-use crate::{ffi, DecodePosition, VertexDataAdapter};
+use crate::{DecodePosition, VertexDataAdapter, ffi};
 use std::mem;
 
 /// Reorders indices to reduce the number of GPU vertex shader invocations.

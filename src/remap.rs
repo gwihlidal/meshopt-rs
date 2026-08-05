@@ -1,4 +1,4 @@
-use crate::{ffi, DecodePosition, VertexDataAdapter, VertexStream};
+use crate::{DecodePosition, VertexDataAdapter, VertexStream, ffi};
 use std::mem;
 
 /// Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices.

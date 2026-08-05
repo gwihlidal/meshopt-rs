@@ -1,4 +1,4 @@
-use crate::{ffi, Error, Result};
+use crate::{Error, Result, ffi};
 
 /// Converts a previously vertex cache optimized triangle list to triangle
 /// strip, stitching strips using restart index.

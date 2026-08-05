@@ -9,6 +9,7 @@ on:
       - master
 
 jobs:
+  # Builds and tests against the minimum supported Rust version declared in Cargo.toml.
   build:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -17,20 +18,37 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: true
 
       - name: Install Rust
         uses: hecrj/setup-rust-action@v2
         with:
-          rust-version: '1.85.0'
+          rust-version: '1.87.0'
+
+      - name: Tests
+        run: cargo test --verbose
+
+  # Lints run on stable, since clippy lint names and rustfmt style rules change
+  # between releases and would otherwise pin the MSRV to the latest toolchain.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v2
+        with:
+          rust-version: stable
+          components: rustfmt, clippy
 
       - name: Rustfmt
         run: cargo fmt --verbose --all --check
 
       - name: Clippy
-        run: cargo clippy --verbose --tests --examples
-
-      - name: Tests
-        run: cargo test --verbose
+        run: cargo clippy --verbose --all-targets

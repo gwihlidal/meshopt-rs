@@ -1,4 +1,4 @@
-use crate::{error_or, ffi, utilities::rcp_safe, Result};
+use crate::{Result, error_or, ffi, utilities::rcp_safe};
 use std::mem;
 
 /// Encodes index data into an array of bytes that is generally much smaller (<1.5 bytes/triangle)

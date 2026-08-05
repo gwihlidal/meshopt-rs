@@ -1,6 +1,6 @@
 [package]
 name = "meshopt"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for mesh optimizer"
 homepage = "https://github.com/gwihlidal/meshopt-rs"
@@ -22,6 +22,9 @@ include = [
     "vendor/src/indexanalyzer.cpp",
     "vendor/src/indexcodec.cpp",
     "vendor/src/indexgenerator.cpp",
+    "vendor/src/meshletcodec.cpp",
+    "vendor/src/meshletutils.cpp",
+    "vendor/src/opacitymap.cpp",
     "vendor/src/overdrawoptimizer.cpp",
     "vendor/src/partition.cpp",
     "vendor/src/quantization.cpp",
@@ -29,13 +32,15 @@ include = [
     "vendor/src/simplifier.cpp",
     "vendor/src/spatialorder.cpp",
     "vendor/src/stripifier.cpp",
+    "vendor/src/tangentspace.cpp",
     "vendor/src/vcacheoptimizer.cpp",
     "vendor/src/vertexcodec.cpp",
     "vendor/src/vertexfilter.cpp",
     "vendor/src/vfetchoptimizer.cpp",
     "include_wasm32/*.h",
 ]
-edition = "2021"
+edition = "2024"
+rust-version = "1.87"
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -43,20 +48,20 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 float-cmp = "0.10"
 thiserror = "2.0"
-bitflags = "2.4"
+bitflags = "2.13"
 
 [build-dependencies]
 cc = { version = "1.0" }
 
 [build-dependencies.bindgen]
-version = "0.72.0"
+version = "0.72.1"
 optional = true
 
 [dev-dependencies]
 tobj = "4.0"
-miniz_oxide = "0.8"
-rand = "0.9"
-structopt = "0.3"
+miniz_oxide = "0.9"
+rand = "0.10"
+clap = { version = "4.6", features = ["derive"] }
 
 [profile.release]
 lto = true

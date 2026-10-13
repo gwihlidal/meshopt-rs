@@ -85,6 +85,40 @@ pub fn optimize_vertex_cache_fifo_in_place(
     }
 }
 
+/// Vertex transform cache optimizer for strip-like caches.
+///
+/// Produces inferior results to `optimize_vertex_cache` from the GPU vertex cache perspective.
+/// However, the resulting index order is more optimal if the goal is to reduce the triangle strip
+/// length or improve compression efficiency.
+pub fn optimize_vertex_cache_strip(indices: &[u32], vertex_count: usize) -> Vec<u32> {
+    let mut optimized: Vec<u32> = vec![0; indices.len()];
+    unsafe {
+        ffi::meshopt_optimizeVertexCacheStrip(
+            optimized.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertex_count,
+        );
+    }
+    optimized
+}
+
+/// Vertex transform cache optimizer for strip-like caches (in place).
+///
+/// Produces inferior results to `optimize_vertex_cache_in_place` from the GPU vertex cache perspective.
+/// However, the resulting index order is more optimal if the goal is to reduce the triangle strip
+/// length or improve compression efficiency.
+pub fn optimize_vertex_cache_strip_in_place(indices: &mut [u32], vertex_count: usize) {
+    unsafe {
+        ffi::meshopt_optimizeVertexCacheStrip(
+            indices.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertex_count,
+        );
+    }
+}
+
 /// Reorders vertices and changes indices to reduce the amount of GPU
 /// memory fetches during vertex processing.
 ///
@@ -201,5 +235,34 @@ pub fn optimize_overdraw_in_place_decoder<T: DecodePosition>(
             mem::size_of::<f32>() * 3,
             threshold,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_optimize_vertex_cache_strip() {
+        // 3x3 vertex grid split into 8 triangles, in scrambled order
+        #[rustfmt::skip]
+        let indices = vec![
+            4, 8, 5, 0, 4, 1, 3, 7, 4, 1, 5, 2,
+            4, 7, 8, 1, 4, 5, 0, 3, 4, 3, 6, 7,
+        ];
+
+        let optimized = optimize_vertex_cache_strip(&indices, 9);
+
+        let mut in_place = indices.clone();
+        optimize_vertex_cache_strip_in_place(&mut in_place, 9);
+        assert_eq!(optimized, in_place);
+
+        // same triangles, possibly reordered
+        let sorted = |indices: &[u32]| {
+            let mut triangles: Vec<&[u32]> = indices.chunks(3).collect();
+            triangles.sort_unstable();
+            triangles.concat()
+        };
+        assert_eq!(sorted(&optimized), sorted(&indices));
     }
 }

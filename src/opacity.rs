@@ -21,7 +21,7 @@ pub struct OpacityMapMeasure {
     pub indices: Vec<i32>,
 }
 
-/// Experimental: Computes a subdivision level for each input triangle, as well as deduplicating
+/// Computes a subdivision level for each input triangle, as well as deduplicating
 /// the triangles that reference the same UVs to reduce rasterization requests.
 ///
 /// `levels` and `sources` in the result have one element per micromap entry, and `indices` has one
@@ -70,14 +70,14 @@ pub fn opacity_map_measure(
     }
 }
 
-/// Experimental: Returns the size in bytes of the opacity data for a single micromap entry.
+/// Returns the size in bytes of the opacity data for a single micromap entry.
 ///
 /// `level` specifies the subdivision level (0..12).
 pub fn opacity_map_entry_size(level: u8, states: OpacityStates) -> usize {
     unsafe { ffi::meshopt_opacityMapEntrySize(i32::from(level), states as i32) }
 }
 
-/// Experimental: Computes the data offset of each micromap entry, returning the offsets along with
+/// Computes the data offset of each micromap entry, returning the offsets along with
 /// the total size in bytes of the opacity data buffer.
 pub fn opacity_map_layout(levels: &[u8], states: OpacityStates) -> (Vec<u32>, usize) {
     let mut offsets: Vec<u32> = Vec::with_capacity(levels.len());
@@ -119,7 +119,7 @@ impl AlphaTexture<'_> {
     }
 }
 
-/// Experimental: Rasterizes opacity state for a single triangle entry by sampling the alpha
+/// Rasterizes opacity state for a single triangle entry by sampling the alpha
 /// texture, using bilinear filtering and 0.5 alpha cutoff.
 ///
 /// * `result` must have room for the output opacity data (see [`opacity_map_entry_size`])
@@ -175,7 +175,7 @@ pub fn opacity_map_rasterize(
     }
 }
 
-/// Experimental: Compacts and deduplicates opacity data, merging identical micromap entries and
+/// Compacts and deduplicates opacity data, merging identical micromap entries and
 /// replacing micromap states with special indices (-4..-1) when possible.
 ///
 /// `data`, `levels` and `offsets` are updated in place and truncated to the compacted entry count,

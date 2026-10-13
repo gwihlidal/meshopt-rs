@@ -164,10 +164,113 @@ pub fn generate_position_remap_decoder<T: DecodePosition>(vertices: &[T]) -> Vec
     remap
 }
 
+/// Filters out redundant triangles from the index buffer.
+///
+/// Triangles are considered redundant if they are degenerate (two vertices have the same vertex key)
+/// or duplicate (matching triangle was present earlier). All bytes of each vertex are compared for
+/// equality; typically `vertices` should contain only the position attribute.
+///
+/// Note that duplicate triangles with opposite windings are preserved, as they may be needed for
+/// double-sided rendering.
+pub fn filter_index_buffer<T>(indices: &[u32], vertices: &[T]) -> Vec<u32> {
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let index_count = unsafe {
+        ffi::meshopt_filterIndexBuffer(
+            result.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertices.as_ptr().cast(),
+            vertices.len(),
+            mem::size_of::<T>(),
+            mem::size_of::<T>(),
+        )
+    };
+    result.truncate(index_count);
+    result
+}
+
+/// Filters out redundant triangles from the index buffer, comparing vertices using multiple vertex streams.
+///
+/// Triangles are considered redundant if they are degenerate (two vertices have the same vertex key)
+/// or duplicate (matching triangle was present earlier). All bytes in specified streams are compared
+/// for equality; streams should include attributes relevant for position transform (e.g. bone influences).
+///
+/// Note that duplicate triangles with opposite windings are preserved, as they may be needed for
+/// double-sided rendering.
+///
+/// At most 16 streams are supported.
+pub fn filter_index_buffer_multi(
+    indices: &[u32],
+    vertex_count: usize,
+    streams: &[VertexStream<'_>],
+) -> Vec<u32> {
+    let streams: Vec<ffi::meshopt_Stream> = streams
+        .iter()
+        .map(|stream| ffi::meshopt_Stream {
+            data: stream.data.cast(),
+            size: stream.size,
+            stride: stream.stride,
+        })
+        .collect();
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let index_count = unsafe {
+        ffi::meshopt_filterIndexBufferMulti(
+            result.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertex_count,
+            streams.as_ptr(),
+            streams.len(),
+        )
+    };
+    result.truncate(index_count);
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::typed_to_bytes;
+
+    #[test]
+    fn test_filter_index_buffer() {
+        let positions: &[[f32; 3]] = &[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0], // duplicate of 0
+        ];
+        #[rustfmt::skip]
+        let indices = [
+            0, 1, 2, // kept
+            1, 2, 0, // duplicate (rotated)
+            3, 1, 2, // duplicate via binary-equal vertex 3
+            0, 1, 3, // degenerate
+            0, 2, 1, // kept (opposite winding)
+        ];
+
+        let result = filter_index_buffer(&indices, positions);
+        assert_eq!(result, vec![0, 1, 2, 0, 2, 1]);
+
+        let multi = filter_index_buffer_multi(
+            &indices,
+            positions.len(),
+            &[VertexStream::new(positions.as_ptr())],
+        );
+        assert_eq!(multi, result);
+
+        // a second stream that distinguishes vertex 3 from vertex 0 keeps those triangles
+        let skin: &[u32] = &[0, 0, 0, 1];
+        let multi = filter_index_buffer_multi(
+            &indices,
+            positions.len(),
+            &[
+                VertexStream::new(positions.as_ptr()),
+                VertexStream::new(skin.as_ptr()),
+            ],
+        );
+        assert_eq!(multi, vec![0, 1, 2, 3, 1, 2, 0, 1, 3, 0, 2, 1]);
+    }
 
     #[test]
     fn test_generate_position_remap() {

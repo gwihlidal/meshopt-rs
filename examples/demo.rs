@@ -499,6 +499,102 @@ fn shadow(mesh: &Mesh) {
     );
 }
 
+fn tangents(mesh: &Mesh) {
+    let positions: Vec<[f32; 3]> = mesh.vertices.iter().map(|v| v.p).collect();
+    let normals: Vec<[f32; 3]> = mesh.vertices.iter().map(|v| v.n).collect();
+    let uvs: Vec<[f32; 2]> = mesh.vertices.iter().map(|v| v.t).collect();
+
+    // note: tangent generation produces a tangent vector and orientation (+-1) per *corner* (3 per
+    // triangle), even for indexed inputs
+    // you *could* then copy the tangents to the existing vertices, but that will not work correctly in
+    // case the input has UV mirroring; here we count how many vertices would need to be split
+    let process_start = Instant::now();
+    let tangents = meshopt::generate_tangents(
+        Some(&mesh.indices),
+        &positions,
+        &normals,
+        &uvs,
+        meshopt::TangentOptions::None,
+    );
+    let process_elapsed = process_start.elapsed();
+
+    let unindexed: Vec<_> = mesh
+        .indices
+        .iter()
+        .zip(&tangents)
+        .map(|(&index, &t)| {
+            let v = &mesh.vertices[index as usize];
+            (v.p, v.n, v.t, t)
+        })
+        .collect();
+    let (vertex_count, _) = meshopt::generate_vertex_remap(&unindexed, None);
+
+    println!(
+        "Tangents : {} corners, {} vertices ({} split) in {:.2} msec",
+        mesh.indices.len(),
+        vertex_count,
+        vertex_count as isize - mesh.vertices.len() as isize,
+        elapsed_to_ms(process_elapsed)
+    );
+}
+
+fn normals(mesh: &Mesh, smoothing: f32) {
+    let vertex_adapter = mesh.vertex_adapter();
+
+    // note: normal generation produces a normal vector per *corner* (3 per triangle), even for indexed
+    // inputs; here we demonstrate an approach with full reindexing
+    let crease = 1.0; // 1 rad ~= 60 deg
+    let process_start = Instant::now();
+    let normals =
+        meshopt::generate_normals(Some(&mesh.indices), &vertex_adapter, crease, smoothing);
+    let process_elapsed = process_start.elapsed();
+
+    let reindex_start = Instant::now();
+    let unindexed: Vec<Vertex> = mesh
+        .indices
+        .iter()
+        .zip(&normals)
+        .map(|(&index, &n)| Vertex {
+            n,
+            ..mesh.vertices[index as usize]
+        })
+        .collect();
+    let (vertex_count, remap) = meshopt::generate_vertex_remap(&unindexed, None);
+    let _indices = meshopt::remap_index_buffer(None, unindexed.len(), &remap);
+    let _vertices = meshopt::remap_vertex_buffer(&unindexed, vertex_count, &remap);
+    let reindex_elapsed = reindex_start.elapsed();
+
+    println!(
+        "Normals {}: {} corners, {} vertices in {:.2} msec; reindexed in {:.2} msec",
+        smoothing.ceil(),
+        mesh.indices.len(),
+        vertex_count,
+        elapsed_to_ms(process_elapsed),
+        elapsed_to_ms(reindex_elapsed)
+    );
+}
+
+fn remesh(mesh: &Mesh, resolution: u32, options: meshopt::RemeshOptions) {
+    let vertex_adapter = mesh.vertex_adapter();
+
+    let process_start = Instant::now();
+    let soup = meshopt::remesh(&mesh.indices, &vertex_adapter, resolution, options);
+    let process_elapsed = process_start.elapsed();
+
+    // remesher output is an unindexed triangle list; count unique vertices after reindexing
+    let (vertex_count, _) = meshopt::generate_vertex_remap(&soup, None);
+
+    println!(
+        "Remesh{:3}: {} triangles => {} triangles, {} vertices in {:.2} msec ({:?})",
+        resolution,
+        mesh.indices.len() / 3,
+        soup.len() / 3,
+        vertex_count,
+        elapsed_to_ms(process_elapsed),
+        options
+    );
+}
+
 fn meshlets(mesh: &Mesh) {
     let max_vertices = 64;
     let max_triangles = 124;
@@ -911,6 +1007,12 @@ fn process(path: Option<PathBuf>, export: bool) {
     encode_vertex::<PackedVertexOct>(&copy, "0");
 
     simplify(&mesh);
+
+    tangents(&mesh);
+    normals(&mesh, 1.5);
+
+    remesh(&mesh, 128, meshopt::RemeshOptions::None);
+    remesh(&mesh, 128, meshopt::RemeshOptions::Solve);
 }
 
 fn main() {

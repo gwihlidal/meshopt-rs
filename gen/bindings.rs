@@ -69,7 +69,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Filter out redundant triangles from the index buffer and return the number of remaining indices\n Triangles are considered redundant if they are degenerate (two vertices have the same vertex key) or duplicate (matching triangle was present earlier).\n First vertex_size bytes of every vertex are compared for equality; typically vertex_size should be set to the size of the position attribute.\n Note that duplicate triangles with opposite windings are preserved, as they may be needed for double-sided rendering.\n\n destination must contain enough space for the resulting index buffer (index_count elements)"]
+    #[doc = " Filter out redundant triangles from the index buffer and return the number of remaining indices\n Triangles are considered redundant if they are degenerate (two vertices have the same vertex key) or duplicate (matching triangle was present earlier).\n First vertex_size bytes of every vertex are compared for equality; typically vertex_size should be set to the size of the position attribute.\n Note that duplicate triangles with opposite windings are preserved, as they may be needed for double-sided rendering.\n\n destination must contain enough space for the resulting index buffer (index_count elements)"]
     pub fn meshopt_filterIndexBuffer(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -81,7 +81,7 @@ unsafe extern "C" {
     ) -> usize;
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Filter out redundant triangles from the index buffer and return the number of remaining indices\n Triangles are considered redundant if they are degenerate (two vertices have the same vertex key) or duplicate (matching triangle was present earlier).\n All bytes in specified streams are compared for equality; streams should include attributes relevant for position transform (e.g. bone influences).\n Note that duplicate triangles with opposite windings are preserved, as they may be needed for double-sided rendering.\n\n destination must contain enough space for the resulting index buffer (index_count elements)\n stream_count must be <= 16"]
+    #[doc = " Filter out redundant triangles from the index buffer and return the number of remaining indices\n Triangles are considered redundant if they are degenerate (two vertices have the same vertex key) or duplicate (matching triangle was present earlier).\n All bytes in specified streams are compared for equality; streams should include attributes relevant for position transform (e.g. bone influences).\n Note that duplicate triangles with opposite windings are preserved, as they may be needed for double-sided rendering.\n\n destination must contain enough space for the resulting index buffer (index_count elements)\n stream_count must be <= 16"]
     pub fn meshopt_filterIndexBufferMulti(
         destination: *mut ::std::os::raw::c_uint,
         indices: *const ::std::os::raw::c_uint,
@@ -812,7 +812,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Opacity micromap generator (measure)\n Computes a subdivision level for each input triangle, as well as deduplicating the triangles that reference the same UVs to reduce rasterization requests.\n Returns the number of OMM entries.\n\n levels and sources must contain enough space for the worst case output (index_count/3 elements, one per resulting OMM entry)\n levels[i] will contain the subdivision level for entry i, with the total number of entries returned by the function; each entry should be rasterized from triangle index sources[i]\n omm_indices must contain enough space for the resulting OMM indices (index_count/3 elements, one per triangle)\n vertex_uvs should have float2 texture coordinate in the first 8 bytes of each vertex\n max_level specifies the maximum subdivision level (0..12)\n target_edge can be 0; when >0, triangle subdivision is adaptive and targets target_edge^2 texel area"]
+    #[doc = " Opacity micromap generator (measure)\n Computes a subdivision level for each input triangle, as well as deduplicating the triangles that reference the same UVs to reduce rasterization requests.\n Returns the number of OMM entries.\n\n levels and sources must contain enough space for the worst case output (index_count/3 elements, one per resulting OMM entry)\n levels[i] will contain the subdivision level for entry i, with the total number of entries returned by the function; each entry should be rasterized from triangle index sources[i]\n omm_indices must contain enough space for the resulting OMM indices (index_count/3 elements, one per triangle)\n vertex_uvs should have float2 texture coordinate in the first 8 bytes of each vertex\n max_level specifies the maximum subdivision level (0..12)\n target_edge can be 0; when >0, triangle subdivision is adaptive and targets target_edge^2 texel area"]
     pub fn meshopt_opacityMapMeasure(
         levels: *mut ::std::os::raw::c_uchar,
         sources: *mut ::std::os::raw::c_uint,
@@ -829,7 +829,7 @@ unsafe extern "C" {
     ) -> usize;
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Opacity micromap generator (rasterize)\n Rasterizes opacity state for a single triangle entry by sampling the alpha texture, using bilinear filtering and 0.5 alpha cutoff.\n\n result should contain enough space for the output opacity data (which can be computed using meshopt_opacityMapEntrySize)\n level specifies the subdivision level (0..12)\n states should be 2 for 2-state format (opaque/transparent) and 4 for 4-state format (opaque/transparent/unknown)\n uv0/uv1/uv2 should refer to a float2 texture coordinate for each triangle corner; note that micromap data is sensitive to the corner order\n texture_data should point to the alpha channel of the first pixel, encoded as UNORM8\n texture_stride specifies the distance in bytes between consecutive pixels, e.g. 4 for RGBA input\n texture_pitch specifies the distance in bytes between consecutive rows, e.g. 4*texture_width for tightly packed RGBA input"]
+    #[doc = " Opacity micromap generator (rasterize)\n Rasterizes opacity state for a single triangle entry by sampling the alpha texture, using bilinear filtering and 0.5 alpha cutoff.\n\n result should contain enough space for the output opacity data (which can be computed using meshopt_opacityMapEntrySize)\n level specifies the subdivision level (0..12)\n states should be 2 for 2-state format (opaque/transparent) and 4 for 4-state format (opaque/transparent/unknown)\n uv0/uv1/uv2 should refer to a float2 texture coordinate for each triangle corner; note that micromap data is sensitive to the corner order\n texture_data should point to the alpha channel of the first pixel, encoded as UNORM8\n texture_stride specifies the distance in bytes between consecutive pixels, e.g. 4 for RGBA input\n texture_pitch specifies the distance in bytes between consecutive rows, e.g. 4*texture_width for tightly packed RGBA input"]
     pub fn meshopt_opacityMapRasterize(
         result: *mut ::std::os::raw::c_uchar,
         level: ::std::os::raw::c_int,
@@ -851,7 +851,7 @@ unsafe extern "C" {
     ) -> usize;
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Opacity micromap generator (compact)\n Compacts and deduplicates opacity data, merging identical micromap entries and replacing micromap states with special indices (-4..-1) when possible.\n Returns the number of OMM entries after compaction; the data array should be trimmed using the last offset/size.\n\n data should contain opacity data for all input/output entries\n levels should contain subdivision levels for all input/output entries\n offsets should contain offset into data[] for each entry\n levels[i] and offsets[i] will be updated with post-compaction level/offset for entry i, with the total number of entries returned by the function\n omm_indices should contain indices into the original OMM data, and will be updated with a new index or a special index (-4..-1) when possible\n states should be 2 for 2-state format (opaque/transparent) and 4 for 4-state format (opaque/transparent/unknown)"]
+    #[doc = " Opacity micromap generator (compact)\n Compacts and deduplicates opacity data, merging identical micromap entries and replacing micromap states with special indices (-4..-1) when possible.\n Returns the number of OMM entries after compaction; the data array should be trimmed using the last offset/size.\n\n data should contain opacity data for all input/output entries\n levels should contain subdivision levels for all input/output entries\n offsets should contain offset into data[] for each entry\n levels[i] and offsets[i] will be updated with post-compaction level/offset for entry i, with the total number of entries returned by the function\n omm_indices should contain indices into the original OMM data, and will be updated with a new index or a special index (-4..-1) when possible\n states should be 2 for 2-state format (opaque/transparent) and 4 for 4-state format (opaque/transparent/unknown)"]
     pub fn meshopt_opacityMapCompact(
         data: *mut ::std::os::raw::c_uchar,
         data_size: usize,
@@ -864,7 +864,7 @@ unsafe extern "C" {
     ) -> usize;
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Tangent space generator\n Computes per-corner tangent vectors; for each corner, computes normalized tangent vector (xyz) and orientation (w, +/-1).\n Bitangent can be reconstructed via cross(normal, tangent.xyz) * tangent.w.\n To apply tangents to the mesh, either deindex and reindex it with the tangent stream, or copy tangents to existing vertex data while duplicating\n vertices with different tangent vectors (e.g. on UV mirror seams).\n Input can be indexed or unindexed (indices=NULL); this does not affect the resulting tangents, but indexed inputs are ~30% faster to process.\n\n result must contain enough space for the output tangent data (index_count*4 elements)\n indices can be NULL if the input is unindexed\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n vertex_normals should have unit float3 normal in the first 12 bytes of each vertex\n vertex_uvs should have float2 texture coordinate in the first 8 bytes of each vertex"]
+    #[doc = " Tangent space generator\n Computes per-corner tangent vectors; for each corner, computes normalized tangent vector (xyz) and orientation (w, +/-1).\n Bitangent can be reconstructed via cross(normal, tangent.xyz) * tangent.w.\n To apply tangents to the mesh, either deindex and reindex it with the tangent stream, or copy tangents to existing vertex data while duplicating\n vertices with different tangent vectors (e.g. on UV mirror seams).\n Input can be indexed or unindexed (indices=NULL); this does not affect the resulting tangents, but indexed inputs are faster to process.\n\n result must contain enough space for the output tangent data (index_count*4 elements)\n indices can be NULL if the input is unindexed\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n vertex_normals should have unit float3 normal in the first 12 bytes of each vertex\n vertex_uvs should have float2 texture coordinate in the first 8 bytes of each vertex"]
     pub fn meshopt_generateTangents(
         result: *mut f32,
         indices: *const ::std::os::raw::c_uint,
@@ -880,6 +880,33 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
+    #[doc = " Experimental: Normal generator\n Computes per-corner normal vectors; normals are averaged across soft edges, using crease angle to determine which edges are hard.\n To apply normals to the mesh, either deindex and reindex it with the normal stream, or copy normals to existing vertex data while duplicating\n vertices with different normal vectors (on normal seams).\n Input can be indexed or unindexed (indices=NULL); this does not affect the resulting normals, but indexed inputs are faster to process.\n\n result must contain enough space for the output normal data (index_count*3 elements)\n indices can be NULL if the input is unindexed\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n crease_angle specifies the angle in radians below which normals are averaged across edges\n smoothing specifies the amount of smoothing to apply to resulting normals as a post-process; larger smoothing values take longer, with the recommended range being [0..5]."]
+    pub fn meshopt_generateNormals(
+        result: *mut f32,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+        crease_angle: f32,
+        smoothing: f32,
+    );
+}
+unsafe extern "C" {
+    #[doc = " Experimental: Voxel remesher\n Generates a new mesh that approximates or refines the original mesh, attempting to preserve mesh appearance at a given voxel resolution.\n The original topology is not preserved; features that are closer than the voxel size may be merged, and small gaps in the original mesh may be closed.\n Returns the number of triangles in the new mesh, with destination containing a vertex position for each triangle corner.\n\n destination can be NULL; when it's not NULL, it must contain enough space for the resulting triangle buffer (max_triangle_count * 3 vertices, 3 floats per vertex)\n max_triangle_count is the number of triangles that can be written; when destination is NULL or insufficiently large, the returned value is an upper bound on the number of triangles\n vertex_positions should have float3 position in the first 12 bytes of each vertex\n resolution is the dimension of the internal voxel grid and should be in the range [4, 256]\n options must be a bitmask composed of meshopt_RemeshX options; 0 is a safe default"]
+    pub fn meshopt_remesh(
+        destination: *mut f32,
+        max_triangle_count: usize,
+        indices: *const ::std::os::raw::c_uint,
+        index_count: usize,
+        vertex_positions: *const f32,
+        vertex_count: usize,
+        vertex_positions_stride: usize,
+        resolution: ::std::os::raw::c_int,
+        options: ::std::os::raw::c_uint,
+    ) -> usize;
+}
+unsafe extern "C" {
     #[doc = " Quantize a float into half-precision (as defined by IEEE-754 fp16) floating point value\n Generates +-inf for overflow, preserves NaN, flushes denormals to zero, rounds to nearest\n Representable magnitude range: [6e-5; 65504]\n Maximum relative reconstruction error: 5e-4"]
     pub fn meshopt_quantizeHalf(v: f32) -> ::std::os::raw::c_ushort;
 }
@@ -892,7 +919,7 @@ unsafe extern "C" {
     pub fn meshopt_dequantizeHalf(h: ::std::os::raw::c_ushort) -> f32;
 }
 unsafe extern "C" {
-    #[doc = " Experimental: Compute shared exponent suitable for mesh/cluster position quantization\n Given mesh or cluster bounds, compute a shared exponent that can be used to quantize any position inside the bounds to a 24-bit integer grid.\n The resulting output can be stored as a compact bit-stream to be decoded directly in shaders, or to be used as an input to RT BVH builders,\n for example via D3D12_VERTEX_FORMAT_COMPRESSED1 in DXR2 (max_bits=16).\n\n To quantize positions, compute:\n   scale = pow(2, exponent)\n   iv = int(round(v / scale))\n The resulting integer can be stored as signed 24-bit, or as an unsigned offset from a signed 24-bit anchor value, shared between all positions.\n\n minv/maxv specify the axis-aligned bounding box of the mesh or cluster; each should refer to a float3 value\n min_exp specifies the minimum value for the returned exponent, limiting precision to reduce size; e.g. min_exp = -10 will produce minimum error of 1mm given metric units\n max_bits specifies the maximum allowed number of bits for the quantized integer range (offset from anchor is an unsigned integer up to 2^max_bits-1)"]
+    #[doc = " Compute shared exponent suitable for mesh/cluster position quantization\n Given mesh or cluster bounds, compute a shared exponent that can be used to quantize any position inside the bounds to a 24-bit integer grid.\n The resulting output can be stored as a compact bit-stream to be decoded directly in shaders, or to be used as an input to RT BVH builders,\n for example via D3D12_VERTEX_FORMAT_COMPRESSED1 in DXR2 (max_bits=16).\n\n To quantize positions, compute:\n   scale = pow(2, exponent)\n   iv = int(round(v / scale))\n The resulting integer can be stored as signed 24-bit, or as an unsigned offset from a signed 24-bit anchor value, shared between all positions.\n\n minv/maxv specify the axis-aligned bounding box of the mesh or cluster; each should refer to a float3 value\n min_exp specifies the minimum value for the returned exponent, limiting precision to reduce size; e.g. min_exp = -10 limits precision to 1mm given metric units\n max_bits specifies the maximum allowed number of bits for the quantized integer range (offset from anchor is an unsigned integer up to 2^max_bits-1)"]
     pub fn meshopt_computePositionExponent(
         minv: *const f32,
         maxv: *const f32,

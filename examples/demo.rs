@@ -2,7 +2,7 @@
 
 use meshopt::{
     FromVertex, PackedVertex, PackedVertexOct, SimplifyOptions, Vertex, VertexDataAdapter,
-    pack_vertices, typed_to_bytes,
+    bytemuck::Pod, pack_vertices, typed_to_bytes,
 };
 use rand::seq::SliceRandom;
 use std::{
@@ -47,8 +47,8 @@ impl Triangle {
 
 impl Ord for Triangle {
     fn cmp(&self, other: &Triangle) -> std::cmp::Ordering {
-        let lhs = meshopt::utilities::any_as_u8_slice(self);
-        let rhs = meshopt::utilities::any_as_u8_slice(other);
+        let lhs = meshopt::utilities::any_as_u8_slice(&self.v);
+        let rhs = meshopt::utilities::any_as_u8_slice(&other.v);
         lhs.cmp(rhs)
     }
 }
@@ -524,7 +524,13 @@ fn tangents(mesh: &Mesh) {
         .zip(&tangents)
         .map(|(&index, &t)| {
             let v = &mesh.vertices[index as usize];
-            (v.p, v.n, v.t, t)
+            // tuples may contain padding, so each corner is flattened into an array
+            let mut corner = [0f32; 12];
+            corner[0..3].copy_from_slice(&v.p);
+            corner[3..6].copy_from_slice(&v.n);
+            corner[6..8].copy_from_slice(&v.t);
+            corner[8..12].copy_from_slice(&t);
+            corner
         })
         .collect();
     let (vertex_count, _) = meshopt::generate_vertex_remap(&unindexed, None);
@@ -912,7 +918,7 @@ fn encode_index(mesh: &Mesh) {
     );
 }
 
-fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) {
+fn encode_vertex<T: FromVertex + Default + Eq + Pod>(mesh: &Mesh, name: &str) {
     let packed = pack_vertices::<T>(&mesh.vertices);
 
     let encode_start = Instant::now();
@@ -939,7 +945,7 @@ fn encode_vertex<T: FromVertex + Clone + Default + Eq>(mesh: &Mesh, name: &str) 
     );
 }
 
-fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
+fn pack_mesh<T: FromVertex + Default + Pod>(mesh: &Mesh, name: &str) {
     let vertices = pack_vertices::<T>(&mesh.vertices);
     let compressed = compress(&vertices);
 
@@ -951,7 +957,7 @@ fn pack_mesh<T: FromVertex + Clone + Default>(mesh: &Mesh, name: &str) {
     );
 }
 
-fn compress<T: Clone + Default>(data: &[T]) -> Vec<u8> {
+fn compress<T: Pod>(data: &[T]) -> Vec<u8> {
     use miniz_oxide::deflate::compress_to_vec;
     let bytes: &[u8] = typed_to_bytes(data);
     compress_to_vec(bytes, 6 /* 0-10 compression level */)

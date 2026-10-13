@@ -1,4 +1,5 @@
-use crate::{DecodePosition, VertexDataAdapter, VertexStream, ffi};
+use crate::utilities::check_triangles;
+use crate::{DecodePosition, VertexDataAdapter, VertexStream, ffi, ffi_streams};
 
 /// Generate index buffer that can be used for more efficient rendering when only a subset of the vertex
 /// attributes is necessary.
@@ -9,6 +10,7 @@ use crate::{DecodePosition, VertexDataAdapter, VertexStream, ffi};
 /// This makes it possible to use the index buffer for Z pre-pass or shadowmap rendering, while using
 /// the original index buffer for regular rendering.
 pub fn generate_shadow_indices(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
     let mut shadow_indices: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_generateShadowIndexBuffer(
@@ -36,6 +38,7 @@ pub fn generate_shadow_indices_decoder<T: DecodePosition>(
     indices: &[u32],
     vertices: &[T],
 ) -> Vec<u32> {
+    check_triangles(indices, vertices.len());
     let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -47,7 +50,7 @@ pub fn generate_shadow_indices_decoder<T: DecodePosition>(
             indices.as_ptr(),
             indices.len(),
             positions.as_ptr().cast(),
-            vertices.len() * 3,
+            positions.len(),
             std::mem::size_of::<f32>() * 3,
             std::mem::size_of::<f32>() * 3,
         );
@@ -68,14 +71,8 @@ pub fn generate_shadow_indices_multi(
     vertex_count: usize,
     streams: &[VertexStream<'_>],
 ) -> Vec<u32> {
-    let streams: Vec<ffi::meshopt_Stream> = streams
-        .iter()
-        .map(|stream| ffi::meshopt_Stream {
-            data: stream.data.cast(),
-            size: stream.size,
-            stride: stream.stride,
-        })
-        .collect();
+    check_triangles(indices, vertex_count);
+    let streams = ffi_streams(streams, vertex_count);
     let mut shadow_indices: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_generateShadowIndexBufferMulti(

@@ -53,6 +53,7 @@ maintenance = { status = "actively-developed" }
 float-cmp = "0.10"
 thiserror = "2.0"
 bitflags = "2.13"
+bytemuck = { version = "1.14", features = ["min_const_generics"] }
 
 [build-dependencies]
 cc = { version = "1.0" }

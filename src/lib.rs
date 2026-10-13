@@ -105,47 +105,98 @@ pub use crate::{
     remap::*, remesh::*, shadow::*, simplify::*, spatial::*, stripify::*, tangents::*,
     utilities::*,
 };
-use std::marker::PhantomData;
+
+pub use bytemuck;
 
 /// Vertex attribute stream, similar to `glVertexPointer`
 ///
-/// Each element takes size bytes, with stride controlling
+/// Each element takes `size` bytes, with `stride` controlling
 /// the spacing between successive elements.
 #[derive(Debug, Copy, Clone)]
 pub struct VertexStream<'a> {
-    /// Pointer to buffer which contains vertex data.
-    pub data: *const u8,
+    /// Buffer which contains vertex data, starting at the first element.
+    data: &'a [u8],
     /// Space between vertices inside the buffer (in bytes).
-    pub stride: usize,
+    stride: usize,
     /// The size in bytes of the vertex attribute this Stream is representing.
-    pub size: usize,
-
-    _marker: PhantomData<&'a ()>,
+    size: usize,
 }
 
 impl<'a> VertexStream<'a> {
-    /// Create a `VertexStream` for a buffer consisting only of elements of type `T`.
-    pub fn new<T>(ptr: *const T) -> VertexStream<'a> {
-        Self::new_with_stride::<T, T>(ptr, std::mem::size_of::<T>())
+    /// Creates a `VertexStream` over a slice consisting only of elements of type `T`.
+    ///
+    /// Panics if `T` is zero-sized or larger than 256 bytes.
+    pub fn new<T: bytemuck::NoUninit>(data: &'a [T]) -> VertexStream<'a> {
+        let size = std::mem::size_of::<T>();
+        Self::new_with_stride(bytemuck::cast_slice(data), size, size)
+            .expect("element size must be between 1 and 256 bytes")
     }
 
-    /// Create a `VertexStream` for a buffer that contains elements of type `VertexType`.
+    /// Creates a `VertexStream` for an attribute stored inside interleaved vertex data.
     ///
-    /// The buffer pointed to by `ptr` starts with one value of `T`, the next value of T
-    /// is `*(ptr + stride)`.
+    /// `data` starts at the first element; each element takes `size` bytes and the next one
+    /// starts `stride` bytes after it. To select an attribute that isn't at the start of the
+    /// vertex, pass the vertex data starting at the attribute's offset.
     ///
-    /// (The `VertexType` does not need to be a concrete type,
-    /// it is only used here to avoid casts on the caller side).
-    pub fn new_with_stride<T, VertexType>(
-        ptr: *const VertexType,
-        stride: usize,
-    ) -> VertexStream<'a> {
-        VertexStream {
-            data: ptr.cast(),
-            stride,
-            size: std::mem::size_of::<T>(),
+    /// Fails if `size` is zero, larger than 256 or larger than `stride`.
+    pub fn new_with_stride(data: &'a [u8], size: usize, stride: usize) -> Result<VertexStream<'a>> {
+        if size == 0 || size > utilities::MAX_VERTEX_SIZE || size > stride {
+            return Err(Error::memory_dynamic(format!(
+                "stream element size ({size}) must be non-zero, at most {} and no larger than stride ({stride})",
+                utilities::MAX_VERTEX_SIZE
+            )));
+        }
+        Ok(VertexStream { data, stride, size })
+    }
 
-            _marker: PhantomData,
+    /// Number of complete elements in the stream.
+    pub fn len(&self) -> usize {
+        if self.data.len() < self.size {
+            0
+        } else {
+            (self.data.len() - self.size) / self.stride + 1
         }
     }
+
+    /// Returns `true` if the stream has no complete elements.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Space between elements inside the buffer (in bytes).
+    pub fn stride(&self) -> usize {
+        self.stride
+    }
+
+    /// The size in bytes of the vertex attribute this stream is representing.
+    pub fn size(&self) -> usize {
+        self.size
+    }
+}
+
+/// Converts streams for the library, checking that each one holds `vertex_count` elements.
+#[track_caller]
+pub(crate) fn ffi_streams(
+    streams: &[VertexStream<'_>],
+    vertex_count: usize,
+) -> Vec<ffi::meshopt_Stream> {
+    assert!(
+        !streams.is_empty() && streams.len() <= 16,
+        "between 1 and 16 streams are supported"
+    );
+    streams
+        .iter()
+        .map(|stream| {
+            assert!(
+                stream.len() >= vertex_count,
+                "stream has {} elements, but vertex count is {vertex_count}",
+                stream.len()
+            );
+            ffi::meshopt_Stream {
+                data: stream.data.as_ptr().cast(),
+                size: stream.size,
+                stride: stream.stride,
+            }
+        })
+        .collect()
 }

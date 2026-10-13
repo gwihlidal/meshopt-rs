@@ -1,4 +1,4 @@
-use crate::{Error, Result, ffi};
+use crate::{Error, Result, ffi, validate_triangles};
 
 /// Converts a previously vertex cache optimized triangle list to triangle
 /// strip, stitching strips using restart index.
@@ -9,6 +9,7 @@ use crate::{Error, Result, ffi};
 /// The `restart_index` should be 0xffff or 0xffffffff depending on index size,
 /// or 0 to use degenerate triangles.
 pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Result<Vec<u32>> {
+    validate_triangles(indices, vertex_count)?;
     let bound = unsafe { ffi::meshopt_stripifyBound(indices.len()) };
     let mut result: Vec<u32> = vec![0; bound];
     let index_count = unsafe {
@@ -70,6 +71,12 @@ mod tests {
         let strip = stripify(&indices, 9, u32::MAX).unwrap();
         assert_eq!(strip.len(), 11);
         assert_eq!(unstripify(&strip, u32::MAX).unwrap(), indices);
+    }
+
+    #[test]
+    fn test_stripify_invalid_input() {
+        assert!(stripify(&[0, 1, 2, 3], 4, 0).is_err());
+        assert!(stripify(&[0, 1, 3], 3, 0).is_err());
     }
 
     #[test]

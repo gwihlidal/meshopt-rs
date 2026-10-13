@@ -121,6 +121,21 @@ impl DecodePosition for Vertex {
     }
 }
 
+// SAFETY: these are `repr(C)` structs made only of integer/float arrays, and the assertions
+// below check that their fields leave no padding
+unsafe impl bytemuck::Zeroable for PackedVertex {}
+unsafe impl bytemuck::Pod for PackedVertex {}
+unsafe impl bytemuck::Zeroable for PackedVertexOct {}
+unsafe impl bytemuck::Pod for PackedVertexOct {}
+unsafe impl bytemuck::Zeroable for Vertex {}
+unsafe impl bytemuck::Pod for Vertex {}
+
+const _: () = {
+    assert!(size_of::<PackedVertex>() == 16);
+    assert!(size_of::<PackedVertexOct>() == 12);
+    assert!(size_of::<Vertex>() == 32);
+};
+
 pub fn pack_vertices<T: FromVertex + Default + Clone>(input: &[Vertex]) -> Vec<T> {
     let mut vertices: Vec<T> = vec![T::default(); input.len()];
     for i in 0..input.len() {

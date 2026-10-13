@@ -88,14 +88,16 @@ pub mod opacity;
 pub mod optimize;
 pub mod packing;
 pub mod remap;
+pub mod remesh;
 pub mod shadow;
 pub mod simplify;
 pub mod stripify;
+pub mod tangents;
 pub mod utilities;
 
 pub use crate::{
     analyze::*, clusterize::*, encoding::*, error::*, opacity::*, optimize::*, packing::*,
-    remap::*, shadow::*, simplify::*, stripify::*, utilities::*,
+    remap::*, remesh::*, shadow::*, simplify::*, stripify::*, tangents::*, utilities::*,
 };
 use std::marker::PhantomData;
 

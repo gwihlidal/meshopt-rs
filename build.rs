@@ -19,6 +19,7 @@ fn main() {
         "vendor/src/partition.cpp",
         "vendor/src/quantization.cpp",
         "vendor/src/rasterizer.cpp",
+        "vendor/src/remesher.cpp",
         "vendor/src/simplifier.cpp",
         "vendor/src/spatialorder.cpp",
         "vendor/src/stripifier.cpp",

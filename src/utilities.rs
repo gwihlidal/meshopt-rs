@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+use crate::{Error, Result, ffi};
 use std::io::{Cursor, Read};
 use std::mem;
 
@@ -138,6 +138,26 @@ pub fn dequantize_half(h: u16) -> f32 {
     f32::from_bits(bits)
 }
 
+/// Computes a shared exponent suitable for mesh/cluster position quantization.
+///
+/// Given mesh or cluster bounds, computes a shared exponent that can be used to quantize any position
+/// inside the bounds to a 24-bit integer grid. The resulting output can be stored as a compact bit-stream
+/// to be decoded directly in shaders, or to be used as an input to RT BVH builders, for example via
+/// `D3D12_VERTEX_FORMAT_COMPRESSED1` in DXR2 (`max_bits` = 16).
+///
+/// To quantize positions, compute `scale = pow(2, exponent)` and `iv = int(round(v / scale))`.
+/// The resulting integer can be stored as signed 24-bit, or as an unsigned offset from a signed 24-bit
+/// anchor value, shared between all positions.
+///
+/// * `min`/`max` specify the axis-aligned bounding box of the mesh or cluster
+/// * `min_exp` specifies the minimum value for the returned exponent, limiting precision to reduce size;
+///   e.g. `min_exp` = -10 limits precision to 1mm given metric units
+/// * `max_bits` specifies the maximum allowed number of bits for the quantized integer range (offset from
+///   anchor is an unsigned integer up to 2^`max_bits`-1)
+pub fn compute_position_exponent(min: [f32; 3], max: [f32; 3], min_exp: i32, max_bits: i32) -> i32 {
+    unsafe { ffi::meshopt_computePositionExponent(min.as_ptr(), max.as_ptr(), min_exp, max_bits) }
+}
+
 #[inline(always)]
 pub fn rcp_safe(v: f32) -> f32 {
     if v.abs() as u32 == 0 { 0f32 } else { 1f32 / v }
@@ -247,6 +267,19 @@ mod tests {
         assert_eq!(p, [4.0, 5.0, 6.0]);
 
         adapter.xyz_f32_at(2).expect_err("should fail");
+    }
+
+    #[test]
+    fn test_compute_position_exponent() {
+        // expected values match meshoptimizer's own tests
+        let minv = [-1.0, 2.0, 10.0];
+        let maxv = [1.0, 2.5, 20.0];
+        assert_eq!(compute_position_exponent(minv, maxv, -16, 16), -12);
+        assert_eq!(compute_position_exponent(minv, maxv, -10, 16), -10);
+
+        let minirr = [-std::f32::consts::PI, -std::f32::consts::E, -1.413_213_6];
+        let maxirr = [std::f32::consts::PI, std::f32::consts::E, 1.413_213_6];
+        assert_eq!(compute_position_exponent(minirr, maxirr, -16, 16), -13);
     }
 
     #[test]

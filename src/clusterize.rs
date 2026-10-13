@@ -125,7 +125,7 @@ pub fn build_meshlets(
     finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
-/// Experimental: Meshlet builder with flexible cluster sizes.
+/// Meshlet builder with flexible cluster sizes.
 ///
 /// Splits the mesh into a set of meshlets, similarly to `build_meshlets`, but allows to specify minimum and maximum number of triangles per meshlet.
 /// Clusters between min and max triangle counts are split when the cluster size would have exceeded the expected cluster size by more than `split_factor`.
@@ -171,7 +171,7 @@ pub fn build_meshlets_flex(
     finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
-/// Experimental: Spatial meshlet builder with flexible cluster sizes.
+/// Spatial meshlet builder with flexible cluster sizes.
 ///
 /// Splits the mesh into a set of meshlets, similarly to `build_meshlets`, but allows to specify minimum and maximum number of triangles per meshlet.
 /// Uses a spatial approach that optimizes for SAH (Surface Area Heuristic) quality while supporting flexible cluster sizes.

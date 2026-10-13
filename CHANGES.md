@@ -2,10 +2,16 @@
 
 ## 0.7.0 (2026-07-27)
 
-* Upgraded meshoptimizer library to 1.2 (hash 9d9890c73011d75920af614485296d1e03e95448)
+* Upgraded meshoptimizer library to 1.3 (hash 9e1f07b159d3cb777f1c67ed31fc11fd117986f4)
 * Vertex buffers are now encoded using format version 1 by default, which requires meshoptimizer 0.23+ (or meshopt-rs 0.5+) to decode
-* Added `SimplifyOptions::RegularizeLight` flag for mesh simplification
-* Added experimental opacity micromap APIs (`opacity_map_measure`, `opacity_map_layout`, `opacity_map_rasterize`, `opacity_map_entry_size` and `opacity_map_compact`)
+* Added `SimplifyOptions::RegularizeLight` flag, and experimental `SimplifyOptions::PreserveFolds` and `SimplifyOptions::ErrorClamped` flags for mesh simplification
+* Added opacity micromap APIs (`opacity_map_measure`, `opacity_map_layout`, `opacity_map_rasterize`, `opacity_map_entry_size` and `opacity_map_compact`)
+* Added experimental voxel remesher (`remesh`, `remesh_decoder` and `RemeshOptions`)
+* Added experimental normal generation (`generate_normals` and `generate_normals_decoder`)
+* Added tangent generation (`generate_tangents` and `TangentOptions`)
+* Added `filter_index_buffer` and `filter_index_buffer_multi` for removing degenerate and duplicate triangles
+* Added `compute_position_exponent` for shared-exponent position quantization
+* `build_meshlets_flex` and `build_meshlets_spatial` are no longer experimental
 * Migrated to the Rust 2024 edition
 * Minimum supported Rust version is now 1.87
 * Updated dependencies

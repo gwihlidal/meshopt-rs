@@ -27,6 +27,12 @@ bitflags! {
         /// Produce more regular triangle sizes and shapes during simplification, at a small cost to
         /// geometric and attribute quality.
         const RegularizeLight = 64;
+        /// Experimental: Try to preserve fold lines between opposite-facing triangles, at a small
+        /// performance cost.
+        const PreserveFolds = 128;
+        /// Experimental: Clamp attribute error to match position error scale and avoid extreme
+        /// error values in areas with high attribute variance.
+        const ErrorClamped = 256;
     }
 }
 

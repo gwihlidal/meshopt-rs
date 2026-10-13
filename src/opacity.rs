@@ -1,5 +1,17 @@
 use crate::ffi;
+use crate::utilities::check_triangles;
 use std::mem;
+
+/// Largest subdivision level of a micromap entry.
+const MAX_LEVEL: u8 = 12;
+
+#[track_caller]
+fn check_level(level: u8) {
+    assert!(
+        level <= MAX_LEVEL,
+        "subdivision level ({level}) must be at most {MAX_LEVEL}"
+    );
+}
 
 /// Opacity micromap state format.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -30,6 +42,9 @@ pub struct OpacityMapMeasure {
 /// * `vertex_uvs` should have a texture coordinate for each vertex
 /// * `max_level` specifies the maximum subdivision level (0..12)
 /// * `target_edge` can be 0. When >0, triangle subdivision is adaptive and targets `target_edge`^2 texel area
+///
+/// The texture can be up to 16384x16384 pixels. Panics if a texture coordinate used by a triangle
+/// is not finite, or exceeds 2^28 divided by the larger texture dimension in magnitude.
 pub fn opacity_map_measure(
     indices: &[u32],
     vertex_uvs: &[[f32; 2]],
@@ -38,6 +53,9 @@ pub fn opacity_map_measure(
     max_level: u8,
     target_edge: f32,
 ) -> OpacityMapMeasure {
+    check_triangles(indices, vertex_uvs.len());
+    check_level(max_level);
+
     let triangle_count = indices.len() / 3;
     let mut levels: Vec<u8> = vec![0; triangle_count];
     let mut sources: Vec<u32> = vec![0; triangle_count];
@@ -74,17 +92,24 @@ pub fn opacity_map_measure(
 ///
 /// `level` specifies the subdivision level (0..12).
 pub fn opacity_map_entry_size(level: u8, states: OpacityStates) -> usize {
+    check_level(level);
     unsafe { ffi::meshopt_opacityMapEntrySize(i32::from(level), states as i32) }
 }
 
 /// Computes the data offset of each micromap entry, returning the offsets along with
 /// the total size in bytes of the opacity data buffer.
+///
+/// Panics if a level is above 12, or if the offsets don't fit in 32 bits.
 pub fn opacity_map_layout(levels: &[u8], states: OpacityStates) -> (Vec<u32>, usize) {
     let mut offsets: Vec<u32> = Vec::with_capacity(levels.len());
-    let mut data_size = 0;
+    let mut data_size = 0usize;
 
     for &level in levels {
-        offsets.push(data_size as u32);
+        let Ok(offset) = u32::try_from(data_size) else {
+            panic!("opacity data offset ({data_size}) must fit in 32 bits");
+        };
+        offsets.push(offset);
+        // can't overflow: the offset fits in 32 bits, and an entry takes a few megabytes at most
         data_size += opacity_map_entry_size(level, states);
     }
 
@@ -96,26 +121,54 @@ pub fn opacity_map_layout(levels: &[u8], states: OpacityStates) -> (Vec<u32>, us
 pub struct AlphaTexture<'a> {
     /// Alpha channel of the first pixel onwards, encoded as `UNORM8`.
     pub data: &'a [u8],
-    /// Distance in bytes between consecutive pixels, e.g. 4 for `RGBA` input.
+    /// Distance in bytes between consecutive pixels, e.g. 4 for `RGBA` input. Must be in 1..=4.
     pub stride: usize,
     /// Distance in bytes between consecutive rows, e.g. 4 * `width` for tightly packed `RGBA` input.
+    /// Must be at least `stride` * `width`.
     pub pitch: usize,
-    /// Texture width in pixels.
+    /// Texture width in pixels, in 1..=16384.
     pub width: u32,
-    /// Texture height in pixels.
+    /// Texture height in pixels, in 1..=16384.
     pub height: u32,
 }
 
 impl AlphaTexture<'_> {
     /// Number of bytes that `data` must hold to cover every sampled pixel.
     ///
-    /// The last pixel sampled is at `(height - 1) * pitch + (width - 1) * stride`.
+    /// The last pixel sampled is at `(height - 1) * pitch + (width - 1) * stride`. Saturates
+    /// to `usize::MAX` if that is not representable.
     pub fn required_len(&self) -> usize {
         if self.width == 0 || self.height == 0 {
-            0
-        } else {
-            (self.height as usize - 1) * self.pitch + (self.width as usize - 1) * self.stride + 1
+            return 0;
         }
+        let rows = (self.height as usize - 1).checked_mul(self.pitch);
+        let columns = (self.width as usize - 1).checked_mul(self.stride);
+        rows.zip(columns)
+            .and_then(|(rows, columns)| rows.checked_add(columns)?.checked_add(1))
+            .unwrap_or(usize::MAX)
+    }
+
+    /// Panics unless the texture has pixels, all of which are within `data`.
+    ///
+    /// The fields are public, so this has to run whenever a texture is handed to the library.
+    #[track_caller]
+    fn check(&self) {
+        assert!(
+            self.width > 0 && self.height > 0,
+            "texture ({}x{}) must not be empty",
+            self.width,
+            self.height
+        );
+        let required = self.required_len();
+        assert!(
+            self.data.len() >= required,
+            "texture data ({}) must cover {}x{} pixels at stride {} and pitch {} ({required})",
+            self.data.len(),
+            self.width,
+            self.height,
+            self.stride,
+            self.pitch
+        );
     }
 }
 
@@ -132,7 +185,9 @@ impl AlphaTexture<'_> {
 /// Index and meshlet compression can rotate triangle corners, so run the micromap stages after the
 /// index order has been finalized.
 ///
-/// Panics if `result` or the texture data is too small.
+/// Panics if `result` or the texture data is too small, if the texture layout is not supported
+/// (see [`AlphaTexture`]), or if a texture coordinate is not finite or exceeds 2^28 divided by
+/// the larger texture dimension in magnitude.
 pub fn opacity_map_rasterize(
     result: &mut [u8],
     level: u8,
@@ -147,16 +202,7 @@ pub fn opacity_map_rasterize(
         result.len()
     );
 
-    let required = texture.required_len();
-    assert!(
-        texture.data.len() >= required,
-        "texture data ({}) must cover {}x{} pixels at stride {} and pitch {} ({required})",
-        texture.data.len(),
-        texture.width,
-        texture.height,
-        texture.stride,
-        texture.pitch
-    );
+    texture.check();
 
     unsafe {
         ffi::meshopt_opacityMapRasterize(
@@ -183,7 +229,10 @@ pub fn opacity_map_rasterize(
 /// with a special index in -4..-1.
 ///
 /// * `levels` and `offsets` must have one element per entry, as produced by [`opacity_map_layout`]
-/// * `omm_indices` must have one element per triangle
+/// * `omm_indices` must have one element per triangle, each either an entry index or negative;
+///   negative indices are kept as is
+///
+/// Panics if an entry isn't within `data`, or if an index doesn't refer to an entry.
 pub fn opacity_map_compact(
     data: &mut Vec<u8>,
     levels: &mut Vec<u8>,
@@ -197,10 +246,39 @@ pub fn opacity_map_compact(
         "levels and offsets must have one element per entry"
     );
 
+    let data_size = data.len();
+    let mut total_size = 0usize;
+    for (&level, &offset) in levels.iter().zip(offsets.iter()) {
+        let entry_size = opacity_map_entry_size(level, states);
+        assert!(
+            (offset as usize)
+                .checked_add(entry_size)
+                .is_some_and(|end| end <= data_size),
+            "level {level} entry at offset {offset} ({entry_size} bytes) must be within the opacity data ({data_size})"
+        );
+        total_size = total_size.saturating_add(entry_size);
+    }
+    if let Some(&index) = omm_indices
+        .iter()
+        .find(|&&index| index >= 0 && index as usize >= levels.len())
+    {
+        panic!(
+            "opacity micromap index ({index}) must be negative or less than entry count ({})",
+            levels.len()
+        );
+    }
+
+    // Entries are read from a copy of the first `data_size` bytes and repacked from the start of
+    // `data`, which takes up to the sum of their sizes. That only exceeds the data when entries
+    // overlap, in which case the buffer needs room for the worst case.
+    if total_size > data_size {
+        data.resize(total_size, 0);
+    }
+
     let count = unsafe {
         ffi::meshopt_opacityMapCompact(
             data.as_mut_ptr(),
-            data.len(),
+            data_size,
             levels.as_mut_ptr(),
             offsets.as_mut_ptr(),
             levels.len(),
@@ -487,5 +565,98 @@ mod tests {
 
         assert_eq!(offsets, [0, sizes[0] as u32, (sizes[0] + sizes[1]) as u32]);
         assert_eq!(data_size, sizes.iter().sum::<usize>());
+    }
+
+    #[test]
+    #[should_panic(expected = "subdivision level")]
+    fn test_opacity_map_entry_size_level_out_of_range() {
+        opacity_map_entry_size(13, OpacityStates::Two);
+    }
+
+    #[test]
+    #[should_panic(expected = "must be less than vertex count")]
+    fn test_opacity_map_measure_index_out_of_range() {
+        opacity_map_measure(&[0, 1, 8], &UVS, TEXTURE_SIZE, TEXTURE_SIZE, 4, 2.5);
+    }
+
+    fn rasterize_with(texture: &AlphaTexture<'_>) {
+        let uvs = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]];
+        opacity_map_rasterize(&mut [0u8; 4], 1, OpacityStates::Four, &uvs, texture);
+    }
+
+    #[test]
+    #[should_panic(expected = "texture data")]
+    fn test_opacity_map_rasterize_short_texture() {
+        let data = circle_texture();
+        rasterize_with(&AlphaTexture {
+            data: &data[..data.len() - 1],
+            stride: 1,
+            pitch: TEXTURE_SIZE as usize,
+            width: TEXTURE_SIZE,
+            height: TEXTURE_SIZE,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "texture data")]
+    fn test_opacity_map_rasterize_pitch_overflow() {
+        // (height - 1) * pitch wraps around to 0
+        let data = circle_texture();
+        rasterize_with(&AlphaTexture {
+            data: &data,
+            stride: 1,
+            pitch: 1 << (usize::BITS - 1),
+            width: TEXTURE_SIZE,
+            height: 3,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "must be within the opacity data")]
+    fn test_opacity_map_compact_offset_out_of_range() {
+        let mut data = vec![0x1b; 8];
+        opacity_map_compact(
+            &mut data,
+            &mut vec![2, 2],
+            &mut vec![0, 5],
+            &mut [0, 1],
+            OpacityStates::Four,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "opacity micromap index")]
+    fn test_opacity_map_compact_index_out_of_range() {
+        let mut data = vec![0x1b; 8];
+        opacity_map_compact(
+            &mut data,
+            &mut vec![2, 2],
+            &mut vec![0, 4],
+            &mut [0, 2],
+            OpacityStates::Four,
+        );
+    }
+
+    #[test]
+    fn test_opacity_map_compact_overlapping_entries() {
+        let mut data = vec![0x1b, 0x2c, 0x3d, 0x4e, 0x5f];
+        let mut levels = vec![2, 2, 1, 2];
+        let mut offsets = vec![0, 1, 0, 0];
+        let mut omm_indices = [3, 2, 1, 0, -3, -7];
+
+        let count = opacity_map_compact(
+            &mut data,
+            &mut levels,
+            &mut offsets,
+            &mut omm_indices,
+            OpacityStates::Four,
+        );
+
+        // the last entry is a duplicate of the first one, and negative indices are kept
+        assert_eq!(count, 3);
+        assert_eq!(levels, [2, 2, 1]);
+        assert_eq!(offsets, [0, 4, 8]);
+        assert_eq!(omm_indices, [0, 2, 1, 0, -3, -7]);
+        assert_eq!(data, [0x1b, 0x2c, 0x3d, 0x4e, 0x2c, 0x3d, 0x4e, 0x5f, 0x1b]);
     }
 }

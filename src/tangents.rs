@@ -1,3 +1,4 @@
+use crate::utilities::check_triangles;
 use crate::{DecodePosition, VertexDataAdapter, ffi};
 use bitflags::bitflags;
 use std::mem;
@@ -27,23 +28,30 @@ bitflags! {
 ///
 /// Returns one normal per index, or one per vertex if the input is unindexed.
 ///
-/// * `crease_angle` specifies the angle in radians below which normals are averaged across edges
+/// * `crease_angle` specifies the angle in radians below which normals are averaged across edges;
+///   value range [0..pi]
 /// * `smoothing` specifies the amount of smoothing to apply to resulting normals as a post-process;
 ///   larger smoothing values take longer, with the recommended range being [0..5]
+///
+/// Panics if `indices` is not a triangle list referring to `vertices`, or if the input is unindexed
+/// and the number of vertices is not a multiple of 3.
 pub fn generate_normals(
     indices: Option<&[u32]>,
     vertices: &VertexDataAdapter<'_>,
     crease_angle: f32,
     smoothing: f32,
 ) -> Vec<[f32; 3]> {
-    generate_normals_raw(
-        indices,
-        vertices.pos_ptr(),
-        vertices.vertex_count,
-        vertices.vertex_stride,
-        crease_angle,
-        smoothing,
-    )
+    // SAFETY: the adapter guarantees `vertex_count` positions at `vertex_stride`
+    unsafe {
+        generate_normals_raw(
+            indices,
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            crease_angle,
+            smoothing,
+        )
+    }
 }
 
 /// Experimental: Computes per-corner normal vectors; normals are averaged across soft edges, using
@@ -60,17 +68,37 @@ pub fn generate_normals_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
-    generate_normals_raw(
-        indices,
-        positions.as_ptr().cast(),
-        positions.len(),
-        mem::size_of::<[f32; 3]>(),
-        crease_angle,
-        smoothing,
-    )
+    // SAFETY: `positions` holds `positions.len()` tightly packed positions
+    unsafe {
+        generate_normals_raw(
+            indices,
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<[f32; 3]>(),
+            crease_angle,
+            smoothing,
+        )
+    }
 }
 
-fn generate_normals_raw(
+/// Panics unless the input is a triangle list: either `indices` referring to `vertex_count`
+/// vertices, or `vertex_count` unindexed triangle corners.
+#[track_caller]
+fn check_corners(indices: Option<&[u32]>, vertex_count: usize) {
+    match indices {
+        Some(indices) => check_triangles(indices, vertex_count),
+        None => assert!(
+            vertex_count.is_multiple_of(3),
+            "vertex count ({vertex_count}) must be a multiple of 3 for unindexed input"
+        ),
+    }
+}
+
+/// # Safety
+///
+/// `vertex_positions` must be valid for reading `vertex_count` positions (3 floats each) that are
+/// `vertex_positions_stride` bytes apart, with the stride a multiple of 4 in the range [12, 256].
+unsafe fn generate_normals_raw(
     indices: Option<&[u32]>,
     vertex_positions: *const f32,
     vertex_count: usize,
@@ -78,6 +106,11 @@ fn generate_normals_raw(
     crease_angle: f32,
     smoothing: f32,
 ) -> Vec<[f32; 3]> {
+    check_corners(indices, vertex_count);
+    // the library runs at most 10 smoothing passes, so larger amounts are equivalent to 10; the
+    // clamp keeps the pass count computation in integer range
+    let smoothing = if smoothing > 10.0 { 10.0 } else { smoothing };
+
     let index_count = indices.map_or(vertex_count, <[u32]>::len);
     let mut result: Vec<[f32; 3]> = vec![[0.0; 3]; index_count];
     unsafe {
@@ -109,7 +142,9 @@ fn generate_normals_raw(
 ///
 /// * `normals` should contain unit normals
 ///
-/// Panics if `positions`, `normals` and `uvs` have different lengths.
+/// Panics if `positions`, `normals` and `uvs` have different lengths, if `indices` is not a
+/// triangle list referring to them, or if the input is unindexed and the number of vertices is not
+/// a multiple of 3.
 pub fn generate_tangents(
     indices: Option<&[u32]>,
     positions: &[[f32; 3]],
@@ -126,6 +161,8 @@ pub fn generate_tangents(
         uvs.len()
     );
 
+    check_corners(indices, vertex_count);
+
     let index_count = indices.map_or(vertex_count, <[u32]>::len);
     let mut result: Vec<[f32; 4]> = vec![[0.0; 4]; index_count];
     unsafe {
@@ -140,7 +177,7 @@ pub fn generate_tangents(
             mem::size_of::<[f32; 3]>(),
             uvs.as_ptr().cast(),
             mem::size_of::<[f32; 2]>(),
-            options.bits(),
+            options.bits() & TangentOptions::all().bits(),
         );
     }
     result
@@ -277,5 +314,39 @@ mod tests {
         let normals = vec![[0.0, 0.0, 1.0]; 3];
         let uvs = vec![[0.0; 2]; 2];
         generate_tangents(None, &positions, &normals, &uvs, TangentOptions::None);
+    }
+
+    #[test]
+    #[should_panic(expected = "index (4) must be less than vertex count (4)")]
+    fn test_generate_normals_index_out_of_range() {
+        let (positions, _) = fold();
+        generate_normals_decoder(Some(&[0, 1, 4]), &positions, 0.5, 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "vertex count (4) must be a multiple of 3 for unindexed input")]
+    fn test_generate_normals_unindexed_partial_triangle() {
+        let (positions, _) = fold();
+        generate_normals_decoder(None, &positions, 0.5, 0.0);
+    }
+
+    #[test]
+    fn test_generate_normals_smoothing_limit() {
+        let (positions, indices) = fold();
+
+        // the library stops after 10 passes, so anything above that gives the same result
+        let expected = generate_normals_decoder(Some(&indices), &positions, 2.0, 10.0);
+        for smoothing in [10.5, 1e30, f32::INFINITY] {
+            let normals = generate_normals_decoder(Some(&indices), &positions, 2.0, smoothing);
+            assert_eq!(normals, expected);
+        }
+    }
+
+    #[test]
+    fn test_generate_empty() {
+        let positions: Vec<[f32; 3]> = vec![];
+        assert!(generate_normals_decoder(None, &positions, 0.5, 0.0).is_empty());
+        assert!(generate_normals_decoder(Some(&[]), &positions, 0.5, 0.0).is_empty());
+        assert!(generate_tangents(None, &[], &[], &[], TangentOptions::None).is_empty());
     }
 }

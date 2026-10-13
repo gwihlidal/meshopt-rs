@@ -1,3 +1,4 @@
+use crate::utilities::{MAX_VERTEX_SIZE, check_triangles, holds_strided};
 use crate::{DecodePosition, VertexDataAdapter, ffi};
 use bitflags::bitflags;
 use std::mem;
@@ -67,6 +68,66 @@ mod private {
     impl Sealed for super::SimplifyVertex {}
 }
 
+// `vertex_lock` arrays are handed to the library as plain bytes
+const _: () = assert!(mem::size_of::<bool>() == 1 && mem::size_of::<SimplifyVertex>() == 1);
+
+/// Largest number of attributes the simplifier supports.
+const MAX_ATTRIBUTES: usize = 32;
+
+/// Returns the option bits to pass to the library.
+///
+/// Unknown bits are dropped: the library reserves some of them for internal modes, one of which
+/// writes to the vertex data.
+fn option_bits(options: SimplifyOptions) -> u32 {
+    options.bits() & SimplifyOptions::all().bits()
+}
+
+/// Panics unless `vertex_lock` has a value for each vertex.
+#[track_caller]
+fn check_vertex_lock<L: VertexLock>(vertex_lock: &[L], vertex_count: usize) {
+    assert!(
+        vertex_lock.len() >= vertex_count,
+        "vertex_lock ({}) must have a value for each of the {vertex_count} vertices",
+        vertex_lock.len()
+    );
+}
+
+/// Panics unless `vertex_attributes` holds `vertex_count` records of `vertex_attributes_stride`
+/// bytes, each starting with one float per attribute weight.
+#[track_caller]
+fn check_attributes(
+    vertex_attributes: &[f32],
+    vertex_attribute_weights: &[f32],
+    vertex_attributes_stride: usize,
+    vertex_count: usize,
+) {
+    assert!(
+        vertex_attribute_weights.len() <= MAX_ATTRIBUTES,
+        "vertex_attribute_weights ({}) must have at most {MAX_ATTRIBUTES} attributes",
+        vertex_attribute_weights.len()
+    );
+    assert!(
+        vertex_attributes_stride <= MAX_VERTEX_SIZE
+            && vertex_attributes_stride.is_multiple_of(mem::size_of::<f32>()),
+        "vertex_attributes_stride ({vertex_attributes_stride}) must be a multiple of 4 no larger than {MAX_VERTEX_SIZE}"
+    );
+    assert!(
+        mem::size_of_val(vertex_attribute_weights) <= vertex_attributes_stride,
+        "vertex_attributes_stride ({vertex_attributes_stride}) must have room for {} attributes",
+        vertex_attribute_weights.len()
+    );
+    assert!(
+        holds_strided(
+            mem::size_of_val(vertex_attributes),
+            vertex_count,
+            mem::size_of_val(vertex_attribute_weights),
+            vertex_attributes_stride
+        ),
+        "vertex_attributes ({}) must have room for {vertex_count} vertices at stride {vertex_attributes_stride}",
+        vertex_attributes.len()
+    );
+}
+
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh
 /// appearance as much as possible.
 ///
@@ -74,6 +135,9 @@ mod private {
 ///
 /// If the original vertex data isn't required, creating a compact vertex buffer
 /// using `optimize_vertex_fetch` is recommended.
+///
+/// Panics if `indices` is not a triangle list referring to `vertices`; this applies to all
+/// simplification functions.
 pub fn simplify(
     indices: &[u32],
     vertices: &VertexDataAdapter<'_>,
@@ -82,6 +146,8 @@ pub fn simplify(
     options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
+    let target_count = target_count.min(indices.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplify(
@@ -93,7 +159,7 @@ pub fn simplify(
             vertices.vertex_stride,
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -120,6 +186,8 @@ pub fn simplify_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
+    let target_count = target_count.min(indices.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplify(
@@ -131,7 +199,7 @@ pub fn simplify_decoder<T: DecodePosition>(
             mem::size_of::<f32>() * 3,
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -155,6 +223,9 @@ pub fn simplify_with_locks(
     options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
+    let target_count = target_count.min(indices.len());
+    check_vertex_lock(vertex_lock, vertices.vertex_count);
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyWithAttributes(
@@ -171,7 +242,7 @@ pub fn simplify_with_locks(
             vertex_lock.as_ptr().cast(),
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -199,6 +270,9 @@ pub fn simplify_with_locks_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
+    let target_count = target_count.min(indices.len());
+    check_vertex_lock(vertex_lock, positions.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyWithAttributes(
@@ -215,7 +289,7 @@ pub fn simplify_with_locks_decoder<T: DecodePosition>(
             vertex_lock.as_ptr().cast(),
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -231,6 +305,15 @@ pub fn simplify_with_locks_decoder<T: DecodePosition>(
 ///
 /// If the original vertex data isn't required, creating a compact vertex buffer
 /// using `optimize_vertex_fetch` is recommended.
+///
+/// * `vertex_attributes` should have a record of `vertex_attribute_weights.len()` floats for each
+///   vertex, with records `vertex_attributes_stride` bytes apart; the stride must be a multiple of
+///   4 and <= 256. To use attributes stored in interleaved vertex data, pass the data starting at
+///   the offset of the first attribute.
+/// * `vertex_attribute_weights.len()` must be <= 32
+/// * `vertex_lock` should have a value for each vertex
+///
+/// Panics if any of these requirements is violated.
 #[allow(clippy::too_many_arguments)]
 pub fn simplify_with_attributes_and_locks(
     indices: &[u32],
@@ -244,6 +327,15 @@ pub fn simplify_with_attributes_and_locks(
     options: SimplifyOptions,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
+    let target_count = target_count.min(indices.len());
+    check_attributes(
+        vertex_attributes,
+        vertex_attribute_weights,
+        vertex_attributes_stride,
+        vertices.vertex_count,
+    );
+    check_vertex_lock(vertex_lock, vertices.vertex_count);
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyWithAttributes(
@@ -260,7 +352,7 @@ pub fn simplify_with_attributes_and_locks(
             vertex_lock.as_ptr().cast(),
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -293,6 +385,15 @@ pub fn simplify_with_attributes_and_locks_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
+    let target_count = target_count.min(indices.len());
+    check_attributes(
+        vertex_attributes,
+        vertex_attribute_weights,
+        vertex_attributes_stride,
+        positions.len(),
+    );
+    check_vertex_lock(vertex_lock, positions.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyWithAttributes(
@@ -309,7 +410,7 @@ pub fn simplify_with_attributes_and_locks_decoder<T: DecodePosition>(
             vertex_lock.as_ptr().cast(),
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     };
@@ -340,9 +441,10 @@ pub fn simplify_with_attributes_and_locks_decoder<T: DecodePosition>(
 /// * `result_error` can be `None`; when it's not `None`, it will contain the resulting (relative/absolute) error
 ///   after simplification
 ///
-/// Panics if `vertex_attributes` or `vertex_lock` is too small for the number of vertices, if
-/// `vertex_attributes_stride` is too small for `vertex_attribute_weights`, or if there are more than 32
-/// attribute weights.
+/// Panics if `indices` is not a valid triangle list for the vertices, if `vertex_attributes` or
+/// `vertex_lock` is too small for the number of vertices, if `vertex_attributes_stride` is too small
+/// for `vertex_attribute_weights`, not a multiple of 4 or larger than 256, or if there are more than
+/// 32 attribute weights.
 #[allow(clippy::too_many_arguments)]
 pub fn simplify_with_update(
     indices: &mut [u32],
@@ -357,27 +459,17 @@ pub fn simplify_with_update(
     result_error: Option<&mut f32>,
 ) -> usize {
     let vertex_count = vertex_positions.len();
-    assert!(
-        vertex_count
-            .checked_mul(vertex_attributes_stride)
-            .is_some_and(|size| mem::size_of_val(vertex_attributes) >= size),
-        "vertex_attributes ({}) must have room for {vertex_count} vertices at stride {vertex_attributes_stride}",
-        vertex_attributes.len()
+    check_triangles(indices, vertex_count);
+    let target_count = target_count.min(indices.len());
+    check_attributes(
+        vertex_attributes,
+        vertex_attribute_weights,
+        vertex_attributes_stride,
+        vertex_count,
     );
-    assert!(
-        mem::size_of_val(vertex_attribute_weights) <= vertex_attributes_stride,
-        "vertex_attributes_stride ({vertex_attributes_stride}) must have room for {} attributes",
-        vertex_attribute_weights.len()
-    );
-    assert!(
-        vertex_attribute_weights.len() <= 32,
-        "vertex_attribute_weights ({}) must have at most 32 attributes",
-        vertex_attribute_weights.len()
-    );
-    assert!(
-        vertex_lock.is_none_or(|lock| lock.len() >= vertex_count),
-        "vertex_lock must have a value for each of the {vertex_count} vertices"
-    );
+    if let Some(vertex_lock) = vertex_lock {
+        check_vertex_lock(vertex_lock, vertex_count);
+    }
 
     unsafe {
         ffi::meshopt_simplifyWithUpdate(
@@ -393,7 +485,7 @@ pub fn simplify_with_update(
             vertex_lock.map_or(std::ptr::null(), |lock| lock.as_ptr().cast()),
             target_count,
             target_error,
-            options.bits(),
+            option_bits(options),
             result_error.map_or_else(std::ptr::null_mut, |v| v as *mut _),
         )
     }
@@ -414,6 +506,8 @@ pub fn simplify_sloppy(
     target_error: f32,
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
+    let target_count = target_count.min(indices.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
@@ -452,6 +546,8 @@ pub fn simplify_sloppy_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
+    let target_count = target_count.min(indices.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
@@ -489,6 +585,9 @@ pub fn simplify_sloppy_with_locks(
     result_error: Option<&mut f32>,
 ) -> Vec<u32> {
     let positions = vertices.pos_ptr();
+    check_triangles(indices, vertices.vertex_count);
+    let target_count = target_count.min(indices.len());
+    check_vertex_lock(vertex_lock, vertices.vertex_count);
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
@@ -529,6 +628,9 @@ pub fn simplify_sloppy_with_locks_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
+    let target_count = target_count.min(indices.len());
+    check_vertex_lock(vertex_lock, positions.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifySloppy(
@@ -561,6 +663,7 @@ pub fn simplify_prune(
     vertices: &VertexDataAdapter<'_>,
     target_error: f32,
 ) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyPrune(
@@ -589,6 +692,7 @@ pub fn simplify_prune_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     let index_count = unsafe {
         ffi::meshopt_simplifyPrune(
@@ -626,6 +730,7 @@ pub fn simplify_points(
         "vertex_colors must have a color for each of the {} vertices",
         vertices.vertex_count
     );
+    let target_count = target_count.min(vertices.vertex_count);
     let mut result: Vec<u32> = vec![0; target_count];
     let point_count = unsafe {
         ffi::meshopt_simplifyPoints(
@@ -661,6 +766,7 @@ pub fn simplify_points_decoder<T: DecodePosition>(
         "vertex_colors must have a color for each of the {} vertices",
         positions.len()
     );
+    let target_count = target_count.min(positions.len());
     let mut result: Vec<u32> = vec![0; target_count];
     let point_count = unsafe {
         ffi::meshopt_simplifyPoints(
@@ -930,5 +1036,143 @@ mod tests {
             simplify_points_decoder(&vertices, Some(&colors), 1.0, 16),
             result
         );
+    }
+
+    // 3x3 grid of vertices with 8 triangles
+    fn grid() -> (Vec<[f32; 3]>, Vec<u32>) {
+        let vertices = (0..9)
+            .map(|i| [(i / 3) as f32, (i % 3) as f32, 0.0])
+            .collect();
+        #[rustfmt::skip]
+        let indices = vec![
+            0, 1, 3, 3, 1, 4, 1, 2, 4, 4, 2, 5,
+            3, 4, 6, 6, 4, 7, 4, 5, 7, 7, 5, 8,
+        ];
+        (vertices, indices)
+    }
+
+    #[test]
+    #[should_panic(expected = "index (9) must be less than vertex count (9)")]
+    fn test_simplify_index_out_of_range() {
+        let (vertices, mut indices) = grid();
+        indices[5] = 9;
+        simplify_decoder(&indices, &vertices, 3, 1.0, SimplifyOptions::None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "multiple of 3")]
+    fn test_simplify_partial_triangle() {
+        let (vertices, indices) = grid();
+        simplify_decoder(
+            &indices[..5],
+            &vertices,
+            3,
+            1.0,
+            SimplifyOptions::None,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "vertex_lock (8) must have a value for each of the 9 vertices")]
+    fn test_simplify_short_locks() {
+        let (vertices, indices) = grid();
+        simplify_with_locks_decoder(
+            &indices,
+            &vertices,
+            &[false; 8],
+            3,
+            1.0,
+            SimplifyOptions::None,
+            None,
+        );
+    }
+
+    #[test]
+    fn test_simplify_target_count_too_large() {
+        // a target above the input size means there is nothing to simplify
+        let (vertices, indices) = grid();
+        let result = simplify_decoder(&indices, &vertices, 27, 1.0, SimplifyOptions::None, None);
+        assert_eq!(result.len(), indices.len());
+    }
+
+    fn simplify_grid_with_attributes(attributes: &[f32], weights: &[f32], stride: usize) {
+        let (vertices, indices) = grid();
+        simplify_with_attributes_and_locks_decoder(
+            &indices,
+            &vertices,
+            attributes,
+            weights,
+            stride,
+            &[false; 9],
+            3,
+            1.0,
+            SimplifyOptions::None,
+            None,
+        );
+    }
+
+    #[test]
+    fn test_simplify_with_attributes() {
+        // stride larger than the attributes that carry weights
+        simplify_grid_with_attributes(&[0.5; 18], &[1.0], 8);
+        // the last vertex only needs the attributes themselves, as when slicing interleaved data
+        simplify_grid_with_attributes(&[0.5; 17], &[1.0], 8);
+        // no attributes at all
+        simplify_grid_with_attributes(&[], &[], 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "vertex_attributes (16) must have room for 9 vertices at stride 8")]
+    fn test_simplify_short_attributes() {
+        simplify_grid_with_attributes(&[0.5; 16], &[1.0], 8);
+    }
+
+    #[test]
+    #[should_panic(expected = "vertex_attributes_stride (4) must have room for 2 attributes")]
+    fn test_simplify_attribute_stride_too_small() {
+        simplify_grid_with_attributes(&[0.5; 18], &[1.0, 1.0], 4);
+    }
+
+    #[test]
+    #[should_panic(expected = "must have at most 32 attributes")]
+    fn test_simplify_too_many_attributes() {
+        simplify_grid_with_attributes(&[0.5; 9 * 33], &[1.0; 33], 33 * 4);
+    }
+
+    #[test]
+    fn test_simplify_ignores_internal_options() {
+        let (vertices, indices) = grid();
+        let original = vertices.clone();
+
+        // bits 29 and 30 select internal modes of the library that write to the vertex data
+        // and tag the resulting indices
+        let options = SimplifyOptions::from_bits_retain(3 << 29);
+        let result = simplify_decoder(&indices, &vertices, 6, 1.0, options, None);
+
+        assert_eq!(
+            result,
+            simplify_decoder(&indices, &vertices, 6, 1.0, SimplifyOptions::None, None)
+        );
+        assert!(result.iter().all(|&index| index < 9));
+        assert_eq!(vertices, original);
+    }
+
+    #[test]
+    #[should_panic(expected = "vertex_colors must have a color for each of the 3 vertices")]
+    fn test_simplify_points_short_colors() {
+        let vertices: &[[f32; 3]] = &[[0.0; 3]; 3];
+        simplify_points_decoder(vertices, Some(&[[0.0; 3]; 2]), 1.0, 2);
+    }
+
+    #[test]
+    fn test_simplify_empty() {
+        let vertices: &[[f32; 3]] = &[];
+        let none = SimplifyOptions::None;
+        assert!(simplify_decoder(&[], vertices, 0, 1.0, none, None).is_empty());
+        assert!(simplify_sloppy_decoder(&[], vertices, 0, 1.0, None).is_empty());
+        assert!(simplify_prune_decoder(&[], vertices, 1.0).is_empty());
+        assert!(simplify_points_decoder(vertices, None, 1.0, 0).is_empty());
+        assert_eq!(simplify_scale_decoder(vertices), 0.0);
     }
 }

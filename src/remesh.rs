@@ -1,3 +1,4 @@
+use crate::utilities::check_triangles;
 use crate::{DecodePosition, VertexDataAdapter, ffi};
 use bitflags::bitflags;
 use std::mem;
@@ -24,7 +25,7 @@ bitflags! {
 ///
 /// Returns the new mesh, with a vertex position for each triangle corner.
 ///
-/// * `resolution` is the dimension of the internal voxel grid and should be in the range [4, 256]
+/// * `resolution` is the dimension of the internal voxel grid; it is clamped to the range [4, 256]
 /// * `options` must be a bitmask composed of `RemeshOptions` flags; `RemeshOptions::None` is a safe
 ///   default
 pub fn remesh(
@@ -33,14 +34,17 @@ pub fn remesh(
     resolution: u32,
     options: RemeshOptions,
 ) -> Vec<[f32; 3]> {
-    remesh_raw(
-        indices,
-        vertices.pos_ptr(),
-        vertices.vertex_count,
-        vertices.vertex_stride,
-        resolution,
-        options,
-    )
+    // SAFETY: the adapter guarantees `vertex_count` positions at `vertex_stride`
+    unsafe {
+        remesh_raw(
+            indices,
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            resolution,
+            options,
+        )
+    }
 }
 
 /// Experimental: Generates a new mesh that approximates or refines the original mesh, attempting
@@ -57,17 +61,24 @@ pub fn remesh_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
-    remesh_raw(
-        indices,
-        positions.as_ptr().cast(),
-        positions.len(),
-        mem::size_of::<[f32; 3]>(),
-        resolution,
-        options,
-    )
+    // SAFETY: `positions` holds `positions.len()` tightly packed positions
+    unsafe {
+        remesh_raw(
+            indices,
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<[f32; 3]>(),
+            resolution,
+            options,
+        )
+    }
 }
 
-fn remesh_raw(
+/// # Safety
+///
+/// `vertex_positions` must be valid for reading `vertex_count` positions (3 floats each) that are
+/// `vertex_positions_stride` bytes apart, with the stride a multiple of 4 in the range [12, 256].
+unsafe fn remesh_raw(
     indices: &[u32],
     vertex_positions: *const f32,
     vertex_count: usize,
@@ -75,6 +86,11 @@ fn remesh_raw(
     resolution: u32,
     options: RemeshOptions,
 ) -> Vec<[f32; 3]> {
+    check_triangles(indices, vertex_count);
+    // the library sizes its voxel grid and fixed-size row buffers from the resolution
+    let resolution = resolution.clamp(4, 256);
+    let options = options.bits() & RemeshOptions::all().bits();
+
     // without a destination, this only computes an upper bound on the triangle count
     let max_triangle_count = unsafe {
         ffi::meshopt_remesh(
@@ -86,7 +102,7 @@ fn remesh_raw(
             vertex_count,
             vertex_positions_stride,
             resolution as i32,
-            options.bits(),
+            options,
         )
     };
 
@@ -101,12 +117,12 @@ fn remesh_raw(
             vertex_count,
             vertex_positions_stride,
             resolution as i32,
-            options.bits(),
+            options,
         )
     };
 
-    debug_assert!(triangle_count <= max_triangle_count);
-    result.truncate(triangle_count * 3);
+    // the library never writes more than `max_triangle_count` triangles, whatever it returns
+    result.truncate(triangle_count.min(max_triangle_count) * 3);
     result
 }
 
@@ -200,5 +216,40 @@ mod tests {
         let positions: Vec<[f32; 3]> = vec![];
         let result = remesh_decoder(&[], &positions, 16, RemeshOptions::None);
         assert!(result.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "index (8) must be less than vertex count (8)")]
+    fn test_remesh_index_out_of_range() {
+        let (positions, mut indices) = cube();
+        indices[7] = 8;
+        remesh_decoder(&indices, &positions, 16, RemeshOptions::None);
+    }
+
+    #[test]
+    fn test_remesh_resolution_clamped() {
+        let (positions, indices) = cube();
+        let clamped = remesh_decoder(&indices, &positions, 3, RemeshOptions::None);
+        assert_eq!(
+            clamped,
+            remesh_decoder(&indices, &positions, 4, RemeshOptions::None)
+        );
+    }
+
+    #[test]
+    fn test_remesh_resolution_limits() {
+        let (positions, indices) = cube();
+        for resolution in [4, 256] {
+            let result = remesh_decoder(&indices, &positions, resolution, RemeshOptions::Solve);
+            assert_eq!(result.len() % 3, 0);
+        }
+    }
+
+    #[test]
+    fn test_remesh_non_finite() {
+        let (mut positions, indices) = cube();
+        positions[6] = [f32::NAN, f32::INFINITY, 1.0];
+        let result = remesh_decoder(&indices, &positions, 16, RemeshOptions::Solve);
+        assert_eq!(result.len() % 3, 0);
     }
 }

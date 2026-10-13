@@ -1,3 +1,4 @@
+use crate::utilities::check_triangles;
 use crate::{DecodePosition, VertexDataAdapter, ffi};
 use std::mem;
 
@@ -41,6 +42,7 @@ pub fn spatial_sort_remap_decoder<T: DecodePosition>(vertices: &[T]) -> Vec<u32>
 ///
 /// The resulting index buffer can be used with other functions like `optimize_vertex_cache`.
 pub fn spatial_sort_triangles(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Vec<u32> {
+    check_triangles(indices, vertices.vertex_count);
     let mut result: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_spatialSortTriangles(
@@ -66,6 +68,7 @@ pub fn spatial_sort_triangles_decoder<T: DecodePosition>(
         .iter()
         .map(|vertex| vertex.decode_position())
         .collect::<Vec<[f32; 3]>>();
+    check_triangles(indices, positions.len());
     let mut result: Vec<u32> = vec![0; indices.len()];
     unsafe {
         ffi::meshopt_spatialSortTriangles(
@@ -85,6 +88,7 @@ pub fn spatial_sort_triangles_decoder<T: DecodePosition>(
 /// Ensures the output can be split into `cluster_size` chunks where each chunk has good positional locality.
 /// Only the last chunk will be smaller than `cluster_size`.
 pub fn spatial_cluster_points(vertices: &VertexDataAdapter<'_>, cluster_size: usize) -> Vec<u32> {
+    let cluster_size = cluster_size.max(1);
     let mut result: Vec<u32> = vec![0; vertices.vertex_count];
     unsafe {
         ffi::meshopt_spatialClusterPoints(
@@ -105,6 +109,7 @@ pub fn spatial_cluster_points_decoder<T: DecodePosition>(
     vertices: &[T],
     cluster_size: usize,
 ) -> Vec<u32> {
+    let cluster_size = cluster_size.max(1);
     let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -179,5 +184,48 @@ mod tests {
         let result = spatial_cluster_points(&adapter, 4);
         assert!(is_permutation(&result, points.len()));
         assert_eq!(spatial_cluster_points_decoder(&points, 4), result);
+    }
+
+    #[test]
+    #[should_panic(expected = "index (16) must be less than vertex count (16)")]
+    fn test_spatial_sort_triangles_index_out_of_range() {
+        let points = grid();
+        let adapter =
+            VertexDataAdapter::new(typed_to_bytes(&points), mem::size_of::<[f32; 3]>(), 0).unwrap();
+        spatial_sort_triangles(&[0, 1, 16], &adapter);
+    }
+
+    #[test]
+    fn test_spatial_cluster_points_zero_cluster_size() {
+        let points = grid();
+        assert_eq!(
+            spatial_cluster_points_decoder(&points, 0),
+            spatial_cluster_points_decoder(&points, 1)
+        );
+    }
+
+    #[test]
+    fn test_spatial_empty() {
+        let points: Vec<[f32; 3]> = vec![];
+        assert!(spatial_sort_remap_decoder(&points).is_empty());
+        assert!(spatial_sort_triangles_decoder(&[], &points).is_empty());
+        assert!(spatial_cluster_points_decoder(&points, 4).is_empty());
+    }
+
+    #[test]
+    fn test_spatial_non_finite() {
+        // positions the library can't quantize must still produce a valid ordering
+        let mut points = grid();
+        points[3] = [f32::NAN, f32::INFINITY, f32::NEG_INFINITY];
+        points[7] = [f32::MAX, f32::MIN, f32::NAN];
+
+        assert!(is_permutation(
+            &spatial_sort_remap_decoder(&points),
+            points.len()
+        ));
+        assert!(is_permutation(
+            &spatial_cluster_points_decoder(&points, 4),
+            points.len()
+        ));
     }
 }

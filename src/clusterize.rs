@@ -125,6 +125,43 @@ pub fn build_meshlets(
     finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
+/// Splits the mesh into a set of meshlets where each meshlet has a micro index buffer
+/// indexing into meshlet vertices that refer to the original vertex buffer.
+///
+/// The resulting data can be used to render meshes using `NVidia programmable mesh shading`
+/// pipeline, or in other cluster-based renderers. For maximum efficiency the index buffer being
+/// converted has to be optimized for vertex cache first.
+///
+/// `max_vertices` and `max_triangles` must not exceed implementation limits (`max_vertices` <= 256, `max_triangles` <= 512)
+pub fn build_meshlets_scan(
+    indices: &[u32],
+    vertex_count: usize,
+    max_vertices: usize,
+    max_triangles: usize,
+) -> Meshlets {
+    let meshlet_count =
+        unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
+    let mut meshlets: Vec<ffi::meshopt_Meshlet> = vec![unsafe { mem::zeroed() }; meshlet_count];
+
+    let mut meshlet_verts: Vec<u32> = vec![0; meshlet_count * max_vertices];
+    let mut meshlet_tris: Vec<u8> = vec![0; meshlet_count * max_triangles * 3];
+
+    let count = unsafe {
+        ffi::meshopt_buildMeshletsScan(
+            meshlets.as_mut_ptr(),
+            meshlet_verts.as_mut_ptr(),
+            meshlet_tris.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertex_count,
+            max_vertices,
+            max_triangles,
+        )
+    };
+
+    finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
+}
+
 /// Meshlet builder with flexible cluster sizes.
 ///
 /// Splits the mesh into a set of meshlets, similarly to `build_meshlets`, but allows to specify minimum and maximum number of triangles per meshlet.
@@ -795,6 +832,27 @@ mod tests {
 
         assert_eq!(result, 2);
         assert_eq!(partitions, [0, 1, 0, 1]);
+    }
+
+    #[test]
+    fn test_meshlets_scan() {
+        // Two tetrahedrons
+        let ib: &[u32] = &[
+            0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2, //
+            4, 5, 6, 4, 6, 7, 4, 7, 5, 5, 7, 6,
+        ];
+
+        // 4 vertices per meshlet splits the tetrahedrons apart
+        let meshlets = build_meshlets_scan(ib, 8, 4, 8);
+        assert_eq!(meshlets.len(), 2);
+
+        for (meshlet, expected) in meshlets.iter().zip([[0, 1, 2, 3], [4, 5, 6, 7]]) {
+            assert_eq!(meshlet.triangles.len(), 12);
+
+            let mut vertices = meshlet.vertices.to_vec();
+            vertices.sort_unstable();
+            assert_eq!(vertices, expected);
+        }
     }
 
     #[test]

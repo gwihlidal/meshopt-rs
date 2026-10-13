@@ -1,8 +1,75 @@
 use crate::ffi;
+use crate::utilities::{check_indices, check_triangles, holds_strided};
 use crate::{DecodePosition, VertexDataAdapter};
 use std::mem;
 
 pub type Bounds = ffi::meshopt_Bounds;
+
+/// Largest number of vertices a meshlet can have, as local indices are stored as bytes.
+const MAX_MESHLET_VERTICES: usize = 256;
+/// Largest number of triangles the library supports in a meshlet or cluster.
+const MAX_MESHLET_TRIANGLES: usize = 512;
+
+/// Panics unless the meshlet builders support the size limits; the library sizes its buffers
+/// from them.
+#[track_caller]
+pub(crate) fn check_meshlet_limits(
+    max_vertices: usize,
+    min_triangles: usize,
+    max_triangles: usize,
+) {
+    assert!(
+        (3..=MAX_MESHLET_VERTICES).contains(&max_vertices),
+        "max_vertices ({max_vertices}) must be between 3 and {MAX_MESHLET_VERTICES}"
+    );
+    assert!(
+        (1..=max_triangles).contains(&min_triangles) && max_triangles <= MAX_MESHLET_TRIANGLES,
+        "min_triangles ({min_triangles}) and max_triangles ({max_triangles}) must be between 1 and {MAX_MESHLET_TRIANGLES}"
+    );
+}
+
+/// Panics unless `indices` is a triangle list small enough to be a single cluster.
+#[track_caller]
+fn check_cluster(indices: &[u32], vertex_count: usize) {
+    assert!(
+        indices.len() / 3 <= MAX_MESHLET_TRIANGLES,
+        "cluster must have at most {MAX_MESHLET_TRIANGLES} triangles"
+    );
+    check_triangles(indices, vertex_count);
+}
+
+/// Panics unless `triangles` is a list of triangles indexing into `vertices`, which in turn refer
+/// to `vertex_count` vertices.
+#[track_caller]
+fn check_meshlet(vertices: &[u32], triangles: &[u8], vertex_count: usize) {
+    assert!(
+        vertices.len() <= MAX_MESHLET_VERTICES
+            && triangles.len().is_multiple_of(3)
+            && triangles.len() / 3 <= MAX_MESHLET_TRIANGLES,
+        "meshlet must have at most {MAX_MESHLET_VERTICES} vertices and {MAX_MESHLET_TRIANGLES} triangles"
+    );
+    assert!(
+        triangles
+            .iter()
+            .all(|&index| (index as usize) < vertices.len()),
+        "meshlet triangles must refer to the meshlet vertices"
+    );
+    check_indices(vertices, vertex_count);
+}
+
+/// Panics unless the cluster index counts add up to the number of cluster indices.
+#[track_caller]
+fn check_partition(cluster_indices: &[u32], cluster_index_counts: &[u32], vertex_count: usize) {
+    let total: u64 = cluster_index_counts
+        .iter()
+        .map(|&count| u64::from(count))
+        .sum();
+    assert!(
+        total == cluster_indices.len() as u64 && !cluster_index_counts.contains(&0),
+        "cluster_index_counts must be non-zero and add up to the number of cluster indices"
+    );
+    check_indices(cluster_indices, vertex_count);
+}
 
 /// Internal helper to finalize meshlet data by truncating arrays and optimizing meshlets
 fn finalize_meshlets(
@@ -26,8 +93,8 @@ fn finalize_meshlets(
     for meshlet in meshlets.iter_mut().take(count) {
         unsafe {
             ffi::meshopt_optimizeMeshlet(
-                &mut meshlet_verts[meshlet.vertex_offset as usize],
-                &mut meshlet_tris[meshlet.triangle_offset as usize],
+                meshlet_verts[meshlet.vertex_offset as usize..].as_mut_ptr(),
+                meshlet_tris[meshlet.triangle_offset as usize..].as_mut_ptr(),
                 meshlet.triangle_count as usize,
                 meshlet.vertex_count as usize,
             );
@@ -98,6 +165,8 @@ pub fn build_meshlets(
     max_triangles: usize,
     cone_weight: f32,
 ) -> Meshlets {
+    check_meshlet_limits(max_vertices, max_triangles, max_triangles);
+    check_triangles(indices, vertices.vertex_count);
     let meshlet_count =
         unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
     let mut meshlets: Vec<ffi::meshopt_Meshlet> =
@@ -139,6 +208,8 @@ pub fn build_meshlets_scan(
     max_vertices: usize,
     max_triangles: usize,
 ) -> Meshlets {
+    check_meshlet_limits(max_vertices, max_triangles, max_triangles);
+    check_triangles(indices, vertex_count);
     let meshlet_count =
         unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, max_triangles) };
     let mut meshlets: Vec<ffi::meshopt_Meshlet> = vec![unsafe { mem::zeroed() }; meshlet_count];
@@ -180,6 +251,8 @@ pub fn build_meshlets_flex(
     cone_weight: f32,
     split_factor: f32,
 ) -> Meshlets {
+    check_meshlet_limits(max_vertices, min_triangles, max_triangles);
+    check_triangles(indices, vertices.vertex_count);
     let meshlet_count =
         unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, min_triangles) };
     let mut meshlets: Vec<ffi::meshopt_Meshlet> = vec![unsafe { mem::zeroed() }; meshlet_count];
@@ -223,6 +296,8 @@ pub fn build_meshlets_spatial(
     max_triangles: usize,
     fill_weight: f32,
 ) -> Meshlets {
+    check_meshlet_limits(max_vertices, min_triangles, max_triangles);
+    check_triangles(indices, vertices.vertex_count);
     let meshlet_count =
         unsafe { ffi::meshopt_buildMeshletsBound(indices.len(), max_vertices, min_triangles) };
     let mut meshlets: Vec<ffi::meshopt_Meshlet> = vec![unsafe { mem::zeroed() }; meshlet_count];
@@ -260,6 +335,7 @@ pub fn build_meshlets_spatial(
 /// * `level` should be in the range [0, 9] with 9 being the slowest; the sweet spot for compression
 ///   ratio is around 3
 pub fn optimize_meshlet_level(vertices: &mut [u32], triangles: &mut [u8], level: u8) {
+    check_meshlet(vertices, triangles, usize::MAX);
     unsafe {
         ffi::meshopt_optimizeMeshletLevel(
             vertices.as_mut_ptr(),
@@ -312,10 +388,8 @@ pub fn partition_clusters(
     target_partition_size: usize,
 ) -> usize {
     assert_eq!(destination.len(), cluster_index_counts.len());
-    debug_assert_eq!(
-        cluster_indices.len(),
-        cluster_index_counts.iter().sum::<u32>() as usize
-    );
+    check_partition(cluster_indices, cluster_index_counts, vertex_count);
+    let target_partition_size = target_partition_size.max(1);
     unsafe {
         ffi::meshopt_partitionClusters(
             destination.as_mut_ptr(),
@@ -351,10 +425,8 @@ pub fn partition_clusters_with_positions(
     target_partition_size: usize,
 ) -> usize {
     assert_eq!(destination.len(), cluster_index_counts.len());
-    debug_assert_eq!(
-        cluster_indices.len(),
-        cluster_index_counts.iter().sum::<u32>() as usize
-    );
+    check_partition(cluster_indices, cluster_index_counts, vertices.vertex_count);
+    let target_partition_size = target_partition_size.max(1);
     unsafe {
         ffi::meshopt_partitionClusters(
             destination.as_mut_ptr(),
@@ -390,10 +462,8 @@ pub fn partition_clusters_with_decoder<T: DecodePosition>(
     target_partition_size: usize,
 ) -> usize {
     assert_eq!(destination.len(), cluster_index_counts.len());
-    debug_assert_eq!(
-        cluster_indices.len(),
-        cluster_index_counts.iter().sum::<u32>() as usize
-    );
+    check_partition(cluster_indices, cluster_index_counts, vertices.len());
+    let target_partition_size = target_partition_size.max(1);
     let positions = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -432,6 +502,7 @@ pub fn partition_clusters_with_decoder<T: DecodePosition>(
 ///
 /// `index_count` should be <= 256*3 (the function assumes clusters of limited size)
 pub fn compute_cluster_bounds(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Bounds {
+    check_cluster(indices, vertices.vertex_count);
     unsafe {
         ffi::meshopt_computeClusterBounds(
             indices.as_ptr(),
@@ -481,34 +552,71 @@ pub fn compute_sphere_bounds(
     positions: PositionDataAdapter<'_>,
     radius: Option<RadiusDataAdapter<'_>>,
 ) -> Sphere {
-    if let Some(ref r) = radius {
-        assert_eq!(positions.position_count, r.radius_count);
-        assert!(r.data.len() >= r.radius_count * r.radius_stride);
-        assert!(r.radius_offset + mem::size_of::<f32>() <= r.radius_stride);
+    /// Returns a pointer to `count` elements of `size` bytes in `data`, checking that they are
+    /// in bounds and aligned for `f32`.
+    #[track_caller]
+    fn element_ptr(
+        data: &[u8],
+        count: usize,
+        stride: usize,
+        offset: usize,
+        size: usize,
+    ) -> *const f32 {
+        let elements = data.get(offset..).unwrap_or_default();
+        assert!(
+            stride.is_multiple_of(mem::align_of::<f32>())
+                && offset.checked_add(size).is_some_and(|end| end <= stride)
+                && holds_strided(elements.len(), count, size, stride),
+            "data must hold {count} elements of {size} bytes at offset {offset} and stride {stride}"
+        );
+        assert!(
+            (elements.as_ptr() as usize).is_multiple_of(mem::align_of::<f32>()),
+            "data must be aligned to 4 bytes"
+        );
+        elements.as_ptr().cast()
     }
-    assert!(positions.data.len() >= positions.position_count * positions.position_stride);
-    assert!(positions.position_offset + mem::size_of::<f32>() * 3 <= positions.position_stride);
-    unsafe {
-        let (radius_ptr, radius_stride) = match radius {
-            Some(r) => (r.data.as_ptr().add(r.radius_offset).cast(), r.radius_stride),
-            None => (std::ptr::null(), 0),
+
+    let count = positions.position_count;
+    if count == 0 {
+        return Sphere {
+            center: [0.0; 3],
+            radius: 0.0,
         };
-        let bounds = ffi::meshopt_computeSphereBounds(
-            positions
-                .data
-                .as_ptr()
-                .add(positions.position_offset)
-                .cast(),
-            positions.position_count,
+    }
+    let positions_ptr = element_ptr(
+        positions.data,
+        count,
+        positions.position_stride,
+        positions.position_offset,
+        mem::size_of::<[f32; 3]>(),
+    );
+    let (radius_ptr, radius_stride) = match radius {
+        Some(r) => {
+            assert_eq!(count, r.radius_count);
+            let ptr = element_ptr(
+                r.data,
+                count,
+                r.radius_stride,
+                r.radius_offset,
+                mem::size_of::<f32>(),
+            );
+            (ptr, r.radius_stride)
+        }
+        None => (std::ptr::null(), 0),
+    };
+    let bounds = unsafe {
+        ffi::meshopt_computeSphereBounds(
+            positions_ptr,
+            count,
             positions.position_stride,
             radius_ptr,
             radius_stride,
-        );
+        )
+    };
 
-        Sphere {
-            center: [bounds.center[0], bounds.center[1], bounds.center[2]],
-            radius: bounds.radius,
-        }
+    Sphere {
+        center: bounds.center,
+        radius: bounds.radius,
     }
 }
 
@@ -534,6 +642,7 @@ pub fn compute_cluster_bounds_decoder<T: DecodePosition>(
     indices: &[u32],
     vertices: &[T],
 ) -> Bounds {
+    check_cluster(indices, vertices.len());
     let vertices = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -543,13 +652,14 @@ pub fn compute_cluster_bounds_decoder<T: DecodePosition>(
             indices.as_ptr(),
             indices.len(),
             vertices.as_ptr().cast(),
-            vertices.len() * 3,
+            vertices.len(),
             mem::size_of::<f32>() * 3,
         )
     }
 }
 
 pub fn compute_meshlet_bounds(meshlet: Meshlet<'_>, vertices: &VertexDataAdapter<'_>) -> Bounds {
+    check_meshlet(meshlet.vertices, meshlet.triangles, vertices.vertex_count);
     unsafe {
         ffi::meshopt_computeMeshletBounds(
             meshlet.vertices.as_ptr(),
@@ -566,6 +676,7 @@ pub fn compute_meshlet_bounds_decoder<T: DecodePosition>(
     meshlet: Meshlet<'_>,
     vertices: &[T],
 ) -> Bounds {
+    check_meshlet(meshlet.vertices, meshlet.triangles, vertices.len());
     let vertices = vertices
         .iter()
         .map(|vertex| vertex.decode_position())
@@ -576,7 +687,7 @@ pub fn compute_meshlet_bounds_decoder<T: DecodePosition>(
             meshlet.triangles.as_ptr(),
             meshlet.triangles.len() / 3,
             vertices.as_ptr().cast(),
-            vertices.len() * 3,
+            vertices.len(),
             mem::size_of::<f32>() * 3,
         )
     }
@@ -1002,5 +1113,65 @@ mod tests {
                 "level {level}"
             );
         }
+    }
+
+    #[test]
+    fn test_sphere_bounds_empty() {
+        // from issue #74: offsets past the end of the data with no elements
+        let data = [255u8; 3];
+        let sphere = compute_sphere_bounds(
+            PositionDataAdapter {
+                data: &data,
+                position_count: 0,
+                position_stride: 65536,
+                position_offset: 4,
+            },
+            Some(RadiusDataAdapter {
+                data: &data,
+                radius_count: 0,
+                radius_stride: 65536,
+                radius_offset: 4,
+            }),
+        );
+        assert_eq!(sphere.radius, 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "data must hold 2 elements")]
+    fn test_sphere_bounds_short_data() {
+        let positions = [0f32; 5];
+        compute_sphere_bounds(
+            PositionDataAdapter {
+                data: typed_to_bytes(&positions),
+                position_count: 2,
+                position_stride: 12,
+                position_offset: 0,
+            },
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "must be less than vertex count")]
+    fn test_build_meshlets_invalid_index() {
+        build_meshlets_scan(&[0, 1, 3], 3, 64, 126);
+    }
+
+    #[test]
+    #[should_panic(expected = "max_vertices (257)")]
+    fn test_build_meshlets_invalid_limits() {
+        build_meshlets_scan(&[0, 1, 2], 3, 257, 126);
+    }
+
+    #[test]
+    #[should_panic(expected = "meshlet triangles must refer to the meshlet vertices")]
+    fn test_optimize_meshlet_invalid_triangle() {
+        optimize_meshlet_level(&mut [0, 1, 2], &mut [0, 1, 3], 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "add up to the number of cluster indices")]
+    fn test_partition_clusters_invalid_counts() {
+        partition_clusters(&mut [0, 0], &[0, 1, 2, 2, 1, 3], &[3, 6], 4, 2);
     }
 }

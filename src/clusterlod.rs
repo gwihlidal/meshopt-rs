@@ -1,3 +1,5 @@
+use crate::clusterize::check_meshlet_limits;
+use crate::utilities::{check_triangles, holds_strided};
 use crate::{SimplifyVertex, VertexDataAdapter, ffi};
 use std::os::raw::{c_int, c_void};
 use std::{mem, slice};
@@ -70,9 +72,10 @@ pub fn clod_default_config_rt(max_triangles: usize) -> ClodConfig {
 /// emitted from this group (`ClodCluster::refined`).
 ///
 /// Panics if `config.simplify_dilate_borders` is set, as border dilation mutates vertex positions in place,
-/// if `mesh.vertex_attributes` or `mesh.vertex_lock` is too small for the number of vertices, if
-/// `mesh.vertex_attributes_stride` is too small for `mesh.attribute_weights`, or if there are more than 32
-/// attribute weights.
+/// if the meshlet limits in `config` are not ones `build_meshlets_flex` supports or `config.partition_size`
+/// is 0, if `mesh.indices` is not a triangle list that refers to `mesh.vertices`, if `mesh.vertex_attributes`
+/// or `mesh.vertex_lock` is too small for the number of vertices, or if `mesh.vertex_attributes_stride`
+/// is not a multiple of 4 with room for `mesh.attribute_weights` and `mesh.attribute_protect_mask`.
 pub fn clod_build<F>(config: ClodConfig, mesh: &ClodMesh<'_>, output: F)
 where
     F: FnMut(ClodGroup, &[ClodCluster<'_>]) -> i32,
@@ -81,31 +84,51 @@ where
         !config.simplify_dilate_borders,
         "simplify_dilate_borders is not supported, as vertex positions are immutable"
     );
+    check_meshlet_limits(
+        config.max_vertices,
+        config.min_triangles,
+        config.max_triangles,
+    );
+    assert!(config.partition_size > 0, "partition_size must not be 0");
 
     let vertex_count = mesh.vertices.vertex_count;
+    check_triangles(mesh.indices, vertex_count);
+
+    // the library reads the attributes that have a weight or a bit in the protect mask, which
+    // has one bit per float of the stride
     let stride = mesh.vertex_attributes_stride;
+    let stride_floats = stride / mem::size_of::<f32>();
+    let used_floats = mesh
+        .attribute_weights
+        .len()
+        .max((u32::BITS - mesh.attribute_protect_mask.leading_zeros()) as usize);
     assert!(
-        vertex_count
-            .checked_mul(stride)
-            .is_some_and(|size| mem::size_of_val(mesh.vertex_attributes) >= size),
+        stride.is_multiple_of(mem::size_of::<f32>())
+            && stride_floats < u32::BITS as usize
+            && used_floats <= stride_floats,
+        "vertex_attributes_stride ({stride}) must be a multiple of 4 smaller than 128 with room for {used_floats} attributes"
+    );
+    assert!(
+        used_floats == 0
+            || holds_strided(
+                mem::size_of_val(mesh.vertex_attributes),
+                vertex_count,
+                used_floats * mem::size_of::<f32>(),
+                stride
+            ),
         "vertex_attributes ({}) must have room for {vertex_count} vertices at stride {stride}",
         mesh.vertex_attributes.len()
-    );
-    assert!(
-        mem::size_of_val(mesh.attribute_weights) <= stride,
-        "vertex_attributes_stride ({stride}) must have room for {} attributes",
-        mesh.attribute_weights.len()
-    );
-    assert!(
-        mesh.attribute_weights.len() <= 32,
-        "attribute_weights ({}) must have at most 32 attributes",
-        mesh.attribute_weights.len()
     );
     assert!(
         mesh.vertex_lock
             .is_none_or(|lock| lock.len() >= vertex_count),
         "vertex_lock must have a value for each of the {vertex_count} vertices"
     );
+
+    // nothing to output, and the library expects to have vertices to work with
+    if mesh.indices.is_empty() {
+        return;
+    }
 
     let ffi_mesh = ffi::clodMesh {
         indices: mesh.indices.as_ptr(),
@@ -144,17 +167,26 @@ where
     F: FnMut(ClodGroup, &[ClodCluster<'_>]) -> i32,
 {
     let output = unsafe { &mut *output_context.cast::<F>() };
-    let clusters = unsafe { slice::from_raw_parts(clusters, cluster_count) }
+    let clusters = unsafe { raw_slice(clusters, cluster_count) }
         .iter()
         .map(|cluster| ClodCluster {
             refined: cluster.refined,
             bounds: cluster.bounds,
-            indices: unsafe { slice::from_raw_parts(cluster.indices, cluster.index_count) },
+            indices: unsafe { raw_slice(cluster.indices, cluster.index_count) },
             vertex_count: cluster.vertex_count,
         })
         .collect::<Vec<_>>();
 
     output(group, &clusters)
+}
+
+/// Like `slice::from_raw_parts`, but empty slices can come with any pointer.
+unsafe fn raw_slice<'a, T>(data: *const T, len: usize) -> &'a [T] {
+    if len == 0 {
+        &[]
+    } else {
+        unsafe { slice::from_raw_parts(data, len) }
+    }
 }
 
 /// Extracts meshlet-local indices from cluster indices produced by [`clod_build`].
@@ -183,11 +215,28 @@ pub fn clod_local_indices(indices: &[u32]) -> (Vec<u32>, Vec<u8>) {
 /// The result is a forest with one tree per DAG level:
 /// - nodes `0..level_count` are the roots of per-level trees, each covering groups with `ClodGroup::depth` == level
 /// - remaining nodes are the tree nodes; each internal node has up to `node_width` children, and each leaf node refers to a single group
+///
+/// `node_width` is at least 2. Panics if one of the levels has no groups.
 pub fn clod_build_hierarchy(
     groups: &[ClodGroup],
     node_width: usize,
     level_count: usize,
 ) -> Vec<ClodNode> {
+    let node_width = node_width.max(2);
+    // each level has a root, which the library takes from the groups of that level
+    let mut levels = vec![false; level_count];
+    for group in groups {
+        if let Some(level) = usize::try_from(group.depth)
+            .ok()
+            .and_then(|depth| levels.get_mut(depth))
+        {
+            *level = true;
+        }
+    }
+    if let Some(level) = levels.iter().position(|&used| !used) {
+        panic!("level {level} must have at least one group");
+    }
+
     let node_count = unsafe { ffi::clodBuildHierarchyBound(groups.len(), node_width, level_count) };
     let mut nodes: Vec<ClodNode> = vec![unsafe { mem::zeroed() }; node_count];
     let count = unsafe {
@@ -362,5 +411,52 @@ mod tests {
             ..clod_default_config(64)
         };
         clod_build(config, &ClodMesh::new(&indices, &vertices), |_, _| -1);
+    }
+
+    // Runs `f`, which must panic with a message that contains `expected`
+
+    #[test]
+    #[should_panic(expected = "must be less than vertex count")]
+    fn test_clod_build_invalid_index() {
+        let (positions, mut indices) = grid(4);
+        indices[7] = positions.len() as u32;
+        let vertices = adapter(&positions);
+        build(clod_default_config(64), &ClodMesh::new(&indices, &vertices));
+    }
+
+    #[test]
+    #[should_panic(expected = "vertex_attributes (49) must have room for 25 vertices")]
+    fn test_clod_build_short_attributes() {
+        let (positions, indices) = grid(4);
+        let vertices = adapter(&positions);
+        let mesh = ClodMesh {
+            vertex_attributes: &[0.0; 49],
+            vertex_attributes_stride: 8,
+            attribute_weights: &[0.5, 0.5],
+            ..ClodMesh::new(&indices, &vertices)
+        };
+        build(clod_default_config(64), &mesh);
+    }
+
+    #[test]
+    fn test_clod_build_empty() {
+        let (positions, _) = grid(4);
+        let vertices = adapter(&positions);
+        let output = build(clod_default_config(64), &ClodMesh::new(&[], &vertices));
+        assert!(output.groups.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "level 1 must have at least one group")]
+    fn test_clod_build_hierarchy_empty_level() {
+        let group = ClodGroup {
+            depth: 0,
+            simplified: ClodBounds {
+                center: [0.0; 3],
+                radius: 1.0,
+                error: 0.5,
+            },
+        };
+        clod_build_hierarchy(&[group], 8, 2);
     }
 }

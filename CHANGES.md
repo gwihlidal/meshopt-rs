@@ -23,6 +23,18 @@
 * `vertex_lock` parameters now take either `bool` or `SimplifyVertex` flags, so vertices can also be tagged with `SimplifyVertex::Protect` and `SimplifyVertex::Priority`
 * Added `generate_vertex_remap_custom(_decoder)`, `generate_adjacency_indices(_decoder)`, `generate_tessellation_indices(_decoder)` and `generate_provoking_indices` API functions
 * Added `optimize_vertex_cache_strip(_in_place)` and `analyze_coverage(_decoder)` API functions
+* Fixed soundness issues: safe functions no longer cause undefined behavior when given invalid input (#52, #74, #76, #80)
+  * Index buffers are checked against the vertex count, and sizes, counts and limits are checked against what the library supports; functions panic (or return an error if they return `Result`) on input that would otherwise make the library read or write out of bounds
+  * Added `validate_indices` and `validate_triangles` to check index buffers up front and get an error instead of a panic
+  * `typed_to_bytes`, `any_as_u8_slice`, `generate_vertex_remap`, `filter_index_buffer` and `encode_vertex_buffer(_level)` require `bytemuck::NoUninit` vertex types; `decode_vertex_buffer`, `remap_vertex_buffer` and `optimize_vertex_fetch(_in_place)` require `bytemuck::Pod` instead of `Clone + Default` (`bytemuck` is re-exported)
+  * `VertexStream` is now created from a slice (`VertexStream::new(&[T])`) or from bytes with an explicit element size and stride (`VertexStream::new_with_stride(&[u8], size, stride)`), instead of from a raw pointer
+  * `VertexDataAdapter::new` validates the layout: the stride must be a multiple of 4 no larger than 256, the position must fit inside the vertex and be aligned for `f32`
+  * `decode_index_buffer` only decodes into `u16` or `u32`
+  * Attribute, lock and color slices must cover every vertex; to use attributes stored in interleaved vertex data, pass the data starting at the attribute offset instead of a slice of a single attribute
+  * Encoders return an error instead of an empty buffer when encoding fails
+  * `optimize_vertex_fetch_remap` returns an entry for every vertex, with `u32::MAX` for unused vertices
+* Fixed `stripify` allocating too little memory when using degenerate triangles, and `unstripify` underflowing on short inputs
+* Fixed `convert_indices_32_to_16` accepting 65536
 * Migrated to the Rust 2024 edition
 * Minimum supported Rust version is now 1.87
 * Updated dependencies

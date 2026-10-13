@@ -5,3 +5,4 @@
 #![allow(clippy::doc_markdown)]
 
 include!("../gen/bindings.rs");
+include!("../gen/clusterlod_bindings.rs");

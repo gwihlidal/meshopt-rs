@@ -81,6 +81,8 @@
 
 pub mod analyze;
 pub mod clusterize;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod clusterlod;
 pub mod encoding;
 pub mod error;
 pub mod ffi;
@@ -96,6 +98,8 @@ pub mod stripify;
 pub mod tangents;
 pub mod utilities;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub use crate::clusterlod::*;
 pub use crate::{
     analyze::*, clusterize::*, encoding::*, error::*, opacity::*, optimize::*, packing::*,
     remap::*, remesh::*, shadow::*, simplify::*, spatial::*, stripify::*, tangents::*,

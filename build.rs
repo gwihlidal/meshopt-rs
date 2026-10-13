@@ -64,13 +64,18 @@ fn main() {
         }
     }
 
+    // clusterlod.h relies on the C++ standard library, which the stripped down wasm32 headers don't provide
+    if !target.starts_with("wasm32") {
+        build.file("src/clusterlod.cpp");
+    }
+
     build.compile("meshopt_cpp");
 
-    generate_bindings("gen/bindings.rs");
+    generate_bindings("gen/bindings.rs", "gen/clusterlod_bindings.rs");
 }
 
 #[cfg(feature = "generate_bindings")]
-fn generate_bindings(output_file: &str) {
+fn generate_bindings(output_file: &str, clusterlod_output_file: &str) {
     let bindings = bindgen::Builder::default()
         .header("vendor/src/meshoptimizer.h")
         .derive_debug(true)
@@ -86,7 +91,25 @@ fn generate_bindings(output_file: &str) {
     bindings
         .write_to_file(std::path::Path::new(output_file))
         .expect("Unable to write bindings!");
+
+    // clusterlod.h is C++ only, and documents its API with regular comments
+    let clusterlod_bindings = bindgen::Builder::default()
+        .header("vendor/demo/clusterlod.h")
+        .clang_args(["-x", "c++", "-fparse-all-comments"])
+        .derive_debug(true)
+        .impl_debug(true)
+        .allowlist_function("clod.*")
+        .allowlist_type("clod.*")
+        .trust_clang_mangling(false)
+        .layout_tests(false)
+        .size_t_is_usize(true)
+        .generate()
+        .expect("Unable to generate clusterlod bindings!");
+
+    clusterlod_bindings
+        .write_to_file(std::path::Path::new(clusterlod_output_file))
+        .expect("Unable to write clusterlod bindings!");
 }
 
 #[cfg(not(feature = "generate_bindings"))]
-fn generate_bindings(_: &str) {}
+fn generate_bindings(_: &str, _: &str) {}

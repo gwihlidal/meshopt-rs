@@ -14,6 +14,7 @@ build = "build.rs"
 include = [
     "src/*.rs",
     "gen/bindings.rs",
+    "gen/clusterlod_bindings.rs",
     "build.rs",
     "Cargo.toml",
     "vendor/src/meshoptimizer.h",
@@ -38,6 +39,8 @@ include = [
     "vendor/src/vertexcodec.cpp",
     "vendor/src/vertexfilter.cpp",
     "vendor/src/vfetchoptimizer.cpp",
+    "vendor/demo/clusterlod.h",
+    "src/clusterlod.cpp",
     "include_wasm32/*.h",
 ]
 edition = "2024"

@@ -11,6 +11,7 @@
 * Added tangent generation (`generate_tangents` and `TangentOptions`)
 * Added `filter_index_buffer` and `filter_index_buffer_multi` for removing degenerate and duplicate triangles
 * Added `compute_position_exponent` for shared-exponent position quantization
+* Added cluster LOD hierarchy generation using meshoptimizer's clusterlod.h (`clod_build`, `clod_build_hierarchy`, `clod_local_indices`, `clod_default_config` and `clod_default_config_rt`)
 * `build_meshlets_flex` and `build_meshlets_spatial` are no longer experimental
 * Added vertex filter APIs (`encode_filter_oct`, `encode_filter_quat`, `encode_filter_exp`, `encode_filter_color`, matching `decode_filter_*` functions and `EncodeExpMode`)
 * Added index sequence codec (`encode_index_sequence` and `decode_index_sequence`)

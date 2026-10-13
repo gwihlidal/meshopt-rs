@@ -15,6 +15,7 @@
 * Added vertex filter APIs (`encode_filter_oct`, `encode_filter_quat`, `encode_filter_exp`, `encode_filter_color`, matching `decode_filter_*` functions and `EncodeExpMode`)
 * Added index sequence codec (`encode_index_sequence` and `decode_index_sequence`)
 * Added `encode_vertex_buffer_level` and format version APIs (`encode_index_version`, `decode_vertex_version` and `decode_index_version`)
+* Added meshlet codec (`encode_meshlet`, `decode_meshlet` and `decode_meshlet_raw`), `optimize_meshlet_level` and `extract_meshlet_indices`
 * Migrated to the Rust 2024 edition
 * Minimum supported Rust version is now 1.87
 * Updated dependencies

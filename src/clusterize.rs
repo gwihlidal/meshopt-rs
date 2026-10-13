@@ -213,6 +213,50 @@ pub fn build_meshlets_spatial(
     finalize_meshlets(meshlets, meshlet_verts, meshlet_tris, count)
 }
 
+/// Reorders meshlet vertices and triangles to maximize locality, with higher levels resulting in
+/// smaller compressed size at the cost of optimization time.
+///
+/// At level 0 the result is equivalent to the meshlet optimization done by `build_meshlets`;
+/// levels >= 1 may rotate triangle corners to improve compression (which can change provoking
+/// vertex and affect OMM data).
+///
+/// * `level` should be in the range [0, 9] with 9 being the slowest; the sweet spot for compression
+///   ratio is around 3
+pub fn optimize_meshlet_level(vertices: &mut [u32], triangles: &mut [u8], level: u8) {
+    unsafe {
+        ffi::meshopt_optimizeMeshletLevel(
+            vertices.as_mut_ptr(),
+            vertices.len(),
+            triangles.as_mut_ptr(),
+            triangles.len() / 3,
+            i32::from(level),
+        );
+    }
+}
+
+/// Extracts meshlet-local vertex and triangle indices from absolute cluster indices.
+///
+/// Returns `vertices` and `triangles` such that `vertices[triangles[i]] == indices[i]`, with one
+/// element in `vertices` per unique vertex.
+///
+/// * `indices` should have at most 256 unique vertex indices
+/// * `indices.len() / 3` must not exceed implementation limits (<= 512)
+pub fn extract_meshlet_indices(indices: &[u32]) -> (Vec<u32>, Vec<u8>) {
+    // the number of unique vertices can't exceed the number of indices
+    let mut vertices: Vec<u32> = vec![0; indices.len()];
+    let mut triangles: Vec<u8> = vec![0; indices.len()];
+    let vertex_count = unsafe {
+        ffi::meshopt_extractMeshletIndices(
+            vertices.as_mut_ptr(),
+            triangles.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+        )
+    };
+    vertices.truncate(vertex_count);
+    (vertices, triangles)
+}
+
 /// Cluster partitioner
 /// Partitions clusters into groups of similar size, prioritizing grouping clusters that share vertices.
 ///
@@ -834,5 +878,71 @@ mod tests {
         assert_eq!(meshlets.meshlets[0].vertex_count, 4);
         assert_eq!(meshlets.meshlets[1].triangle_count, 4);
         assert_eq!(meshlets.meshlets[1].vertex_count, 4);
+    }
+
+    #[test]
+    fn test_extract_meshlet_indices() {
+        // 15 and 1039 collide in low 10 bits (from meshoptimizer's extractMeshlet test)
+        let indices = [0, 7, 15, 1039, 7, 15];
+
+        let (vertices, triangles) = extract_meshlet_indices(&indices);
+        assert_eq!(vertices, [0, 7, 15, 1039]);
+        assert_eq!(triangles, [0, 1, 2, 3, 1, 2]);
+
+        for (&t, &i) in triangles.iter().zip(&indices) {
+            assert_eq!(vertices[t as usize], i);
+        }
+    }
+
+    #[test]
+    fn test_optimize_meshlet_level() {
+        // 8x8 quad grid
+        const N: u32 = 8;
+        let vb: Vec<[f32; 3]> = (0..=N)
+            .flat_map(|y| (0..=N).map(move |x| [x as f32, y as f32, 0.0]))
+            .collect();
+        let ib: Vec<u32> = (0..N)
+            .flat_map(|y| {
+                (0..N).flat_map(move |x| {
+                    let v = y * (N + 1) + x;
+                    [v, v + 1, v + N + 1, v + 1, v + N + 2, v + N + 1]
+                })
+            })
+            .collect();
+
+        let vertices =
+            VertexDataAdapter::new(typed_to_bytes(&vb), mem::size_of::<[f32; 3]>(), 0).unwrap();
+        let meshlets = build_meshlets(&ib, &vertices, 128, 128, 0.0);
+        assert_eq!(meshlets.len(), 1);
+
+        // global triangles, rotated so that the smallest index comes first, in sorted order
+        let canonical = |vertices: &[u32], triangles: &[u8]| {
+            let mut result: Vec<[u32; 3]> = triangles
+                .chunks(3)
+                .map(|t| {
+                    let mut t = [0, 1, 2].map(|k| vertices[t[k] as usize]);
+                    let min = (0..3).min_by_key(|&k| t[k]).unwrap();
+                    t.rotate_left(min);
+                    t
+                })
+                .collect();
+            result.sort_unstable();
+            result
+        };
+
+        let meshlet = meshlets.get(0);
+        let expected = canonical(meshlet.vertices, meshlet.triangles);
+
+        for level in [0, 1, 3, 9] {
+            let mut meshlet_vertices = meshlet.vertices.to_vec();
+            let mut meshlet_triangles = meshlet.triangles.to_vec();
+            optimize_meshlet_level(&mut meshlet_vertices, &mut meshlet_triangles, level);
+
+            assert_eq!(
+                canonical(&meshlet_vertices, &meshlet_triangles),
+                expected,
+                "level {level}"
+            );
+        }
     }
 }

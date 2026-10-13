@@ -1,4 +1,5 @@
 use crate::{DecodePosition, VertexDataAdapter, VertexStream, ffi};
+use std::ffi::{c_int, c_uint, c_void};
 use std::mem;
 
 /// Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices.
@@ -227,6 +228,206 @@ pub fn filter_index_buffer_multi(
     result
 }
 
+/// Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices.
+///
+/// As a result, all vertices that are equivalent map to the same (new) location, with no gaps in the resulting sequence.
+/// Equivalence is checked in two steps: vertex positions are compared for equality, and then `callback` is called.
+/// Resulting remap table maps old vertices to new vertices and can be used in `remap_vertex_buffer`/`remap_index_buffer`.
+///
+/// The `indices` can be `None` if the input is unindexed.
+/// `callback` should return `true` if vertices with specified indices are equivalent and `false` if they are not.
+pub fn generate_vertex_remap_custom<F: FnMut(u32, u32) -> bool>(
+    vertices: &VertexDataAdapter<'_>,
+    indices: Option<&[u32]>,
+    callback: F,
+) -> (usize, Vec<u32>) {
+    generate_vertex_remap_custom_raw(
+        vertices.pos_ptr(),
+        vertices.vertex_count,
+        vertices.vertex_stride,
+        indices,
+        callback,
+    )
+}
+
+/// Generates a vertex remap table from the vertex buffer and an optional index buffer and returns number of unique vertices.
+///
+/// See [`generate_vertex_remap_custom`] for details.
+pub fn generate_vertex_remap_custom_decoder<T: DecodePosition, F: FnMut(u32, u32) -> bool>(
+    vertices: &[T],
+    indices: Option<&[u32]>,
+    callback: F,
+) -> (usize, Vec<u32>) {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    generate_vertex_remap_custom_raw(
+        positions.as_ptr().cast(),
+        positions.len(),
+        mem::size_of::<f32>() * 3,
+        indices,
+        callback,
+    )
+}
+
+fn generate_vertex_remap_custom_raw<F: FnMut(u32, u32) -> bool>(
+    vertex_positions: *const f32,
+    vertex_count: usize,
+    vertex_positions_stride: usize,
+    indices: Option<&[u32]>,
+    mut callback: F,
+) -> (usize, Vec<u32>) {
+    unsafe extern "C" fn compare<F: FnMut(u32, u32) -> bool>(
+        context: *mut c_void,
+        lhs: c_uint,
+        rhs: c_uint,
+    ) -> c_int {
+        let callback = unsafe { &mut *context.cast::<F>() };
+        c_int::from(callback(lhs, rhs))
+    }
+
+    let mut remap: Vec<u32> = vec![0; vertex_count];
+    let unique_count = unsafe {
+        ffi::meshopt_generateVertexRemapCustom(
+            remap.as_mut_ptr(),
+            indices.map_or(std::ptr::null(), <[u32]>::as_ptr),
+            indices.map_or(vertex_count, <[u32]>::len),
+            vertex_positions,
+            vertex_count,
+            vertex_positions_stride,
+            Some(compare::<F>),
+            std::ptr::from_mut(&mut callback).cast(),
+        )
+    };
+    (unique_count, remap)
+}
+
+/// Generate index buffer that can be used as a geometry shader input with triangle adjacency topology.
+///
+/// Each triangle is converted into a 6-vertex patch with the following layout:
+/// - 0, 2, 4: original triangle vertices
+/// - 1, 3, 5: vertices adjacent to edges 02, 24 and 40
+///
+/// The resulting patch can be rendered with geometry shaders using e.g. `VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY`.
+/// This can be used to implement algorithms like silhouette detection/expansion and other forms of GS-driven rendering.
+pub fn generate_adjacency_indices(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Vec<u32> {
+    let mut result: Vec<u32> = vec![0; indices.len() * 2];
+    unsafe {
+        ffi::meshopt_generateAdjacencyIndexBuffer(
+            result.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        );
+    }
+    result
+}
+
+/// Generate index buffer that can be used as a geometry shader input with triangle adjacency topology.
+///
+/// See [`generate_adjacency_indices`] for details.
+pub fn generate_adjacency_indices_decoder<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+) -> Vec<u32> {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    let mut result: Vec<u32> = vec![0; indices.len() * 2];
+    unsafe {
+        ffi::meshopt_generateAdjacencyIndexBuffer(
+            result.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+        );
+    }
+    result
+}
+
+/// Generate index buffer that can be used for PN-AEN tessellation with crack-free displacement.
+///
+/// Each triangle is converted into a 12-vertex patch with the following layout:
+/// - 0, 1, 2: original triangle vertices
+/// - 3, 4: opposing edge for edge 0, 1
+/// - 5, 6: opposing edge for edge 1, 2
+/// - 7, 8: opposing edge for edge 2, 0
+/// - 9, 10, 11: dominant vertices for corners 0, 1, 2
+///
+/// The resulting patch can be rendered with hardware tessellation using PN-AEN and displacement mapping.
+/// See "Tessellation on Any Budget" (GDC 2011) for implementation details.
+pub fn generate_tessellation_indices(
+    indices: &[u32],
+    vertices: &VertexDataAdapter<'_>,
+) -> Vec<u32> {
+    let mut result: Vec<u32> = vec![0; indices.len() * 4];
+    unsafe {
+        ffi::meshopt_generateTessellationIndexBuffer(
+            result.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        );
+    }
+    result
+}
+
+/// Generate index buffer that can be used for PN-AEN tessellation with crack-free displacement.
+///
+/// See [`generate_tessellation_indices`] for details.
+pub fn generate_tessellation_indices_decoder<T: DecodePosition>(
+    indices: &[u32],
+    vertices: &[T],
+) -> Vec<u32> {
+    let positions = vertices
+        .iter()
+        .map(|vertex| vertex.decode_position())
+        .collect::<Vec<[f32; 3]>>();
+    let mut result: Vec<u32> = vec![0; indices.len() * 4];
+    unsafe {
+        ffi::meshopt_generateTessellationIndexBuffer(
+            result.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            positions.as_ptr().cast(),
+            positions.len(),
+            mem::size_of::<f32>() * 3,
+        );
+    }
+    result
+}
+
+/// Generate index buffer that can be used for visibility buffer rendering, returning the index buffer and the reorder table.
+///
+/// Each triangle's provoking vertex index is equal to primitive id; this allows passing it to the fragment shader using flat/nointerpolation attribute.
+/// This is important for performance on hardware where primitive id can't be accessed efficiently in fragment shader.
+/// The reorder table stores the original vertex id for each vertex in the new index buffer, and should be used in the vertex shader to load vertex data.
+/// The provoking vertex is assumed to be the first vertex in the triangle; if this is not the case (OpenGL), rotate each triangle (abc -> bca) before rendering.
+/// For maximum efficiency the input index buffer should be optimized for vertex cache first.
+pub fn generate_provoking_indices(indices: &[u32], vertex_count: usize) -> (Vec<u32>, Vec<u32>) {
+    let mut result: Vec<u32> = vec![0; indices.len()];
+    let mut reorder: Vec<u32> = vec![0; vertex_count + indices.len() / 3];
+    let reorder_count = unsafe {
+        ffi::meshopt_generateProvokingIndexBuffer(
+            result.as_mut_ptr(),
+            reorder.as_mut_ptr(),
+            indices.as_ptr(),
+            indices.len(),
+            vertex_count,
+        )
+    };
+    reorder.truncate(reorder_count);
+    (result, reorder)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,6 +471,99 @@ mod tests {
             ],
         );
         assert_eq!(multi, vec![0, 1, 2, 3, 1, 2, 0, 1, 3, 0, 2, 1]);
+    }
+
+    #[test]
+    fn test_generate_vertex_remap_custom() {
+        let vertices: &[[f32; 3]] = &[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, -0.0, 1.0],
+        ];
+
+        let (count, remap) = generate_vertex_remap_custom_decoder(vertices, None, |_, _| true);
+        assert_eq!(count, 4);
+        assert_eq!(remap, vec![0, 1, 2, 3, 1, 3]);
+
+        let (count, remap) = generate_vertex_remap_custom_decoder(vertices, None, |_, _| false);
+        assert_eq!(count, 6);
+        assert_eq!(remap, vec![0, 1, 2, 3, 4, 5]);
+
+        // the callback is only consulted for vertices with equal positions
+        let mut calls = Vec::new();
+        let adapter =
+            VertexDataAdapter::new(typed_to_bytes(vertices), mem::size_of::<[f32; 3]>(), 0)
+                .unwrap();
+        let (count, _) =
+            generate_vertex_remap_custom(&adapter, Some(&[0, 1, 2, 3, 4, 5]), |a, b| {
+                calls.push((a.min(b), a.max(b)));
+                true
+            });
+        assert_eq!(count, 4);
+        calls.sort_unstable();
+        assert_eq!(calls, vec![(1, 4), (3, 5)]);
+    }
+
+    #[test]
+    fn test_generate_adjacency_indices() {
+        // 0 1/4
+        // 2/5 3
+        let vertices: &[[f32; 3]] = &[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let indices = [0, 1, 2, 5, 4, 3];
+
+        let result = generate_adjacency_indices_decoder(&indices, vertices);
+        assert_eq!(result, vec![0, 0, 1, 3, 2, 2, 5, 0, 4, 4, 3, 3]);
+    }
+
+    #[test]
+    fn test_generate_tessellation_indices() {
+        // 0 1/4
+        // 2/5 3
+        let vertices: &[[f32; 3]] = &[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let indices = [0, 1, 2, 5, 4, 3];
+
+        let result = generate_tessellation_indices_decoder(&indices, vertices);
+        #[rustfmt::skip]
+        let expected = vec![
+            0, 1, 2, 0, 1, 4, 5, 2, 0, 0, 1, 2, // patch 0
+            5, 4, 3, 2, 1, 4, 3, 3, 5, 2, 1, 3, // patch 1
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_generate_provoking_indices() {
+        // 0 1 2
+        // 3 4 5
+        #[rustfmt::skip]
+        let indices = [
+            0, 1, 3,
+            3, 1, 4,
+            1, 2, 4,
+            4, 2, 5,
+            0, 2, 4,
+        ];
+
+        let (result, reorder) = generate_provoking_indices(&indices, 6);
+        assert_eq!(result, vec![0, 5, 1, 1, 4, 0, 2, 4, 1, 3, 4, 2, 4, 5, 2]);
+        assert_eq!(reorder, vec![3, 1, 2, 5, 4, 0]);
     }
 
     #[test]

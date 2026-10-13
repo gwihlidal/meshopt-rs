@@ -20,6 +20,8 @@
 * Added `spatial_sort_remap(_decoder)`, `spatial_sort_triangles(_decoder)` and `spatial_cluster_points(_decoder)` API functions
 * Added `build_meshlets_scan` API function
 * `vertex_lock` parameters now take either `bool` or `SimplifyVertex` flags, so vertices can also be tagged with `SimplifyVertex::Protect` and `SimplifyVertex::Priority`
+* Added `generate_vertex_remap_custom(_decoder)`, `generate_adjacency_indices(_decoder)`, `generate_tessellation_indices(_decoder)` and `generate_provoking_indices` API functions
+* Added `optimize_vertex_cache_strip(_in_place)` and `analyze_coverage(_decoder)` API functions
 * Migrated to the Rust 2024 edition
 * Minimum supported Rust version is now 1.87
 * Updated dependencies

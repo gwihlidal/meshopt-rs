@@ -9,11 +9,8 @@ use crate::{Error, Result, ffi};
 /// The `restart_index` should be 0xffff or 0xffffffff depending on index size,
 /// or 0 to use degenerate triangles.
 pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Result<Vec<u32>> {
-    // Worst case storage is 5 indices per triangle assuming every triangle is unconnected to the previous triangle
-    // This would cause the first triangle to use 3 indices, and then every following triangle to use 5 indices
-    // (3 indices for the triangle and 2 indices for the degenerate indices used to separate the previous triangles).
-    // This asymptotically approaches 5 as the number of triangles becomes large
-    let mut result: Vec<u32> = vec![0; indices.len() / 3 * 5];
+    let bound = unsafe { ffi::meshopt_stripifyBound(indices.len()) };
+    let mut result: Vec<u32> = vec![0; bound];
     let index_count = unsafe {
         ffi::meshopt_stripify(
             result.as_mut_ptr().cast(),
@@ -24,7 +21,8 @@ pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Res
         )
     };
     if index_count <= result.len() {
-        result.resize(index_count, 0u32);
+        result.truncate(index_count);
+        result.shrink_to_fit();
         Ok(result)
     } else {
         Err(Error::memory("index count is larger than result"))
@@ -33,7 +31,12 @@ pub fn stripify(indices: &[u32], vertex_count: usize, restart_index: u32) -> Res
 
 /// Converts a triangle strip to a triangle list
 pub fn unstripify(indices: &[u32], restart_index: u32) -> Result<Vec<u32>> {
-    let mut result: Vec<u32> = vec![0; (indices.len() - 2) * 3];
+    // a strip with fewer than 3 indices contains no triangles
+    if indices.len() < 3 {
+        return Ok(Vec::new());
+    }
+    let bound = unsafe { ffi::meshopt_unstripifyBound(indices.len()) };
+    let mut result: Vec<u32> = vec![0; bound];
     let index_count = unsafe {
         ffi::meshopt_unstripify(
             result.as_mut_ptr().cast(),
@@ -43,9 +46,37 @@ pub fn unstripify(indices: &[u32], restart_index: u32) -> Result<Vec<u32>> {
         )
     };
     if index_count <= result.len() {
-        result.resize(index_count, 0u32);
+        result.truncate(index_count);
+        result.shrink_to_fit();
         Ok(result)
     } else {
         Err(Error::memory("index count is larger than result"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stripify_disjoint_triangles() {
+        // disjoint triangles are the worst case: with degenerate triangles each one after
+        // the first takes 5 indices, with restart indices it takes 4
+        let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+        let strip = stripify(&indices, 9, 0).unwrap();
+        assert_eq!(strip.len(), 13);
+
+        let strip = stripify(&indices, 9, u32::MAX).unwrap();
+        assert_eq!(strip.len(), 11);
+        assert_eq!(unstripify(&strip, u32::MAX).unwrap(), indices);
+    }
+
+    #[test]
+    fn test_unstripify_short_input() {
+        for len in 0..3 {
+            let strip = vec![0; len];
+            assert!(unstripify(&strip, 0).unwrap().is_empty());
+        }
     }
 }

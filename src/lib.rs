@@ -91,13 +91,15 @@ pub mod remap;
 pub mod remesh;
 pub mod shadow;
 pub mod simplify;
+pub mod spatial;
 pub mod stripify;
 pub mod tangents;
 pub mod utilities;
 
 pub use crate::{
     analyze::*, clusterize::*, encoding::*, error::*, opacity::*, optimize::*, packing::*,
-    remap::*, remesh::*, shadow::*, simplify::*, stripify::*, tangents::*, utilities::*,
+    remap::*, remesh::*, shadow::*, simplify::*, spatial::*, stripify::*, tangents::*,
+    utilities::*,
 };
 use std::marker::PhantomData;
 

@@ -16,6 +16,10 @@
 * Added index sequence codec (`encode_index_sequence` and `decode_index_sequence`)
 * Added `encode_vertex_buffer_level` and format version APIs (`encode_index_version`, `decode_vertex_version` and `decode_index_version`)
 * Added meshlet codec (`encode_meshlet`, `decode_meshlet` and `decode_meshlet_raw`), `optimize_meshlet_level` and `extract_meshlet_indices`
+* Added `simplify_with_update`, `simplify_prune(_decoder)` and `simplify_points(_decoder)` API functions
+* Added `spatial_sort_remap(_decoder)`, `spatial_sort_triangles(_decoder)` and `spatial_cluster_points(_decoder)` API functions
+* Added `build_meshlets_scan` API function
+* `vertex_lock` parameters now take either `bool` or `SimplifyVertex` flags, so vertices can also be tagged with `SimplifyVertex::Protect` and `SimplifyVertex::Priority`
 * Migrated to the Rust 2024 edition
 * Minimum supported Rust version is now 1.87
 * Updated dependencies

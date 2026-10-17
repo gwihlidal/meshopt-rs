@@ -1,6 +1,6 @@
 # Changes
 
-## 0.7.0 (2026-07-27)
+## 0.7.0 (2026-10-17)
 
 * Upgraded meshoptimizer library to 1.3 (hash 9e1f07b159d3cb777f1c67ed31fc11fd117986f4)
 * Vertex buffers are now encoded using format version 1 by default, which requires meshoptimizer 0.23+ (or meshopt-rs 0.5+) to decode
@@ -23,6 +23,7 @@
 * `vertex_lock` parameters now take either `bool` or `SimplifyVertex` flags, so vertices can also be tagged with `SimplifyVertex::Protect` and `SimplifyVertex::Priority`
 * Added `generate_vertex_remap_custom(_decoder)`, `generate_adjacency_indices(_decoder)`, `generate_tessellation_indices(_decoder)` and `generate_provoking_indices` API functions
 * Added `optimize_vertex_cache_strip(_in_place)` and `analyze_coverage(_decoder)` API functions
+* Fixed `stripify` allocating too little memory when using degenerate triangles, and `unstripify` underflowing on short inputs
 * Migrated to the Rust 2024 edition
 * Minimum supported Rust version is now 1.87
 * Updated dependencies
